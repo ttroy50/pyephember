@@ -1,3 +1,3 @@
-# Tado control module
+# EphEmber control module
 
 __all__ = ['EphEmber']
