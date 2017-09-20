@@ -13,10 +13,13 @@ _LOGGER = logging.getLogger(__name__)
 class EphEmber:
     """Interacts with a EphEmber thermostat via API.
     Example usage: t = EphEmber('me@somewhere.com', 'mypasswd')
-                   t.getClimate(1) # Get climate, zone 1.
+                   t.getZoneTemperature('myzone') # Get temperature
     """
 
     def _requires_refresh_token(self):
+        """
+        Check if a refresh of the token is needed
+        """
         expires_on = datetime.datetime.strptime(self.login_data['token']['expiresOn'], '%Y-%m-%dT%H:%M:%SZ')
         refresh_time = datetime.datetime.utcnow() + datetime.timedelta(seconds=30)
         if expires_on < refresh_time:
@@ -25,7 +28,9 @@ class EphEmber:
             return False
 
     def _request_token(self, force=False):
-
+        """
+        Request a new auth token
+        """
         if self.login_data is None:
             raise RuntimeError("Don't have a token to refresh")
 
@@ -58,6 +63,9 @@ class EphEmber:
         return True
 
     def _login(self):
+        """
+        Login using username / password and get the first auth token
+        """
         headers = {
             "Content-Type": "application/x-www-form-urlencoded",
             "Accept": "application/json"
@@ -90,6 +98,9 @@ class EphEmber:
         return False
 
     def _do_auth(self):
+        """
+        Do authentication to the system (if required)
+        """
         if self.login_data is None:
             return self._login()
         else:
@@ -97,6 +108,9 @@ class EphEmber:
 
     # Public interface
     def getHome(self, home_id=None):
+        """
+        Get the data about a home
+        """
         now = datetime.datetime.utcnow()
         if self.home and now < self.home_refresh_at:
             return self.home
@@ -131,6 +145,9 @@ class EphEmber:
         return home
 
     def getZones(self):
+        """
+        Get all zones
+        """
         home_data = self.getHome()
         if not home_data['isSuccess']:
             return []
@@ -144,6 +161,9 @@ class EphEmber:
         return zones
 
     def getZoneNames(self):
+        """
+        Get the name of all zones
+        """
         zone_names = []
         for zone in self.getZones():
             zone_names.append(zone['name'])
@@ -151,6 +171,9 @@ class EphEmber:
         return zone_names
 
     def getZone(self, zone_name):
+        """
+        Get the information about a particular zone
+        """
         for zone in self.getZones():
             if zone_name == zone['name']:
                 return zone
@@ -158,6 +181,9 @@ class EphEmber:
         return None
 
     def isZoneActive(self, zone_name):
+        """
+        Check if a zone is active
+        """
         zone = self.getZone(zone_name)
         if zone is not None:
             return zone['isCurrentlyActive']
@@ -165,6 +191,9 @@ class EphEmber:
         return False
 
     def getZoneTemperature(self, zone_name):
+        """
+        Get the temperature for a zone
+        """
         zone = self.getZone(zone_name)
         if zone is not None:
             return zone['currentTemperature']
