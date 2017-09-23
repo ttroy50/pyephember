@@ -1,6 +1,8 @@
 from pyephember.pyephember import EphEmber
 import argparse
 import sys
+import getpass
+import json
 
 def main():
     # global params
@@ -8,7 +10,7 @@ def main():
                                      description='Example of using pyephember')
     parser.add_argument("--email", type=str,
                         help="Email Address for your account")
-    parser.add_argument('--password', type=str,
+    parser.add_argument('--password', type=str, default="",
                         help="Password for your account")
     parser.add_argument('--zone_name', type=str, default="heating",
                         help="Zone Name to check")
@@ -16,24 +18,31 @@ def main():
                         help="use a new HTTP request per api request or cache data between requests")
     args = parser.parse_args()
 
+    password = args.password
+    if password is None or password == "":
+        try:
+            password = getpass.getpass()
+        except:
+            print "Unable to get password"
+
     try:
-        t = EphEmber(args.email, args.password, cache_home=args.cache_home)
+        t = EphEmber(args.email, password, cache_home=args.cache_home)
     except:
         print("Unable to login")
         return 1
 
     # Get the full home information
-    print(t.getHome())
+    print(json.dumps(t.getHome(), indent=4, sort_keys=True))
     print("----------------------------------")
     # Get only zone information
-    print(t.getZones())
+    print(json.dumps(t.getZones(), indent=4, sort_keys=True))
     print("----------------------------------")
     # Get a zone by name
-    print(t.getZone(args.zone_name))
+    print(json.dumps(t.getZone(args.zone_name), indent=4, sort_keys=True))
     print("----------------------------------")
     # Get information about a zone
-    print(t.getZoneTemperature(args.zone_name))
-    print(t.isZoneActive(args.zone_name))
+    print("{} current temperature is {}".format(args.zone_name, t.getZoneTemperature(args.zone_name)))
+    print("{} active : {}".format(args.zone_name, t.isZoneActive(args.zone_name)))
 
     return 0
 
