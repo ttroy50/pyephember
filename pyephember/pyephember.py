@@ -9,7 +9,6 @@ import requests
 
 _LOGGER = logging.getLogger(__name__)
 
-
 class EphEmber:
     """Interacts with a EphEmber thermostat via API.
     Example usage: t = EphEmber('me@somewhere.com', 'mypasswd')
@@ -41,7 +40,7 @@ class EphEmber:
 
         headers = {
             "Accept": "application/json",
-            'Authorization': 'Bearer' + self.login_data['token']['accessToken']
+            'Authorization': 'Bearer ' + self.login_data['token']['accessToken']
         }
 
         url = self.api_base_url + "account/RefreshToken"
@@ -135,7 +134,8 @@ class EphEmber:
         response = requests.get(url, params=params, headers=headers, timeout=10)
 
         if response.status_code != 200:
-            return None
+            raise RuntimeError("{} response code when getting home".format(response.status_code))
+
         home = response.json()
 
         if self.cache_home:
@@ -178,27 +178,137 @@ class EphEmber:
             if zone_name == zone['name']:
                 return zone
 
-        return None
+        raise RuntimeError("Unknown zone")
 
     def isZoneActive(self, zone_name):
         """
         Check if a zone is active
         """
         zone = self.getZone(zone_name)
-        if zone is not None:
-            return zone['isCurrentlyActive']
+        if zone is None:
+            raise RuntimeError("Unable to get zone")
 
-        return False
+        return zone['isCurrentlyActive']
 
     def getZoneTemperature(self, zone_name):
         """
         Get the temperature for a zone
         """
         zone = self.getZone(zone_name)
-        if zone is not None:
-            return zone['currentTemperature']
 
-        return 0.0
+        if zone is None:
+            raise RuntimeError("Unknown zone")
+
+        return zone['currentTemperature']
+
+    def isBoostActive(self, zone_name):
+        """
+        Check if a zone is active
+        """
+        zone = self.getZone(zone_name)
+
+        if zone is None:
+            raise RuntimeError("Unknown zone")
+
+        return zone['isBoostActive']
+
+    def isTargetTemperatureReached(self, zone_name):
+        """
+        Check if a zone is active
+        """
+        zone = self.getZone(zone_name)
+
+        if zone is None:
+            raise RuntimeError("Unknown zone")
+
+        return zone['isTargetTemperatureReached']
+
+
+    def activateBoostByZoneId(self, zone_id, target_temperature, num_hours=1):
+        """
+        Activate boost for a zone based on the numeric id
+        """
+        if not self._do_auth():
+            raise RuntimeError("Unable to login")
+
+        zones = [zone_id]
+        data = {
+            "ZoneIds": zones,
+            "NumberOfHours": num_hours,
+            "TargetTemperature": target_temperature
+        }
+
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            'Authorization': 'Bearer ' + self.login_data['token']['accessToken']
+        }
+
+        print(json.dumps(data))
+        url = self.api_base_url + "Home/ActivateZoneBoost"
+        print url
+
+        response = requests.post(url, data=json.dumps(data), headers=headers, timeout=10)
+
+        if response.status_code != 200:
+            return False
+
+        boost_data = response.json()
+
+        return boost_data.get("isSuccess", False)
+
+
+    def activateBoostByZoneName(self, zone_name, target_temperature, num_hours=1):
+        """
+        Activate boost by the name of the zone
+        """
+
+        zone = self.getZone(zone_name)
+        if zone is None:
+            raise RuntimeError("Unknown zone")
+
+        return self.activateBoostByZoneId(zone["zoneId"], target_temperature, num_hours)
+
+
+    def deactivateBoostByZoneId(self, zone_id):
+        """
+        Deactivate boost for a zone based on the numeric id
+        """
+        if not self._do_auth():
+            raise RuntimeError("Unable to login")
+
+        zones = [zone_id]
+        data = zones
+
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            'Authorization': 'Bearer ' + self.login_data['token']['accessToken']
+        }
+
+        url = self.api_base_url + "Home/DeActivateZoneBoost"
+        print json.dumps(data)
+        response = requests.post(url, data=json.dumps(data), headers=headers, timeout=10)
+
+        if response.status_code != 200:
+            return False
+
+        boost_data = response.json()
+
+        return boost_data.get("isSuccess", False)
+
+
+    def deactivateBoostByZoneName(self, zone_name):
+        """
+        Deactivate boost by the name of the zone
+        """
+
+        zone = self.getZone(zone_name)
+        if zone is None:
+            raise RuntimeError("Unknown zone")
+
+        return self.deactivateBoostByZoneId(zone["zoneId"])
+
 
     # Ctor
     def __init__(self, username, password, cache_home=False):
