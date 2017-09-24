@@ -10,3 +10,10 @@ Example basic usage
     >>> from pyephember.pyephember import EphEmber
     >>> e = EphEmber('my@username.com', 'mypassword')
     >>> e.getZoneTemperature("MyZone")
+
+API
+---
+
+The API is a basic HTTPS API returning data in JSON format. For more details see [here](API.md)
+
+Disclaimer: I have no connection with EPH Controls so cannot guarentee that these API calls will always be valid.
