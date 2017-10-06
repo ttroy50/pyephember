@@ -244,9 +244,7 @@ class EphEmber:
             'Authorization': 'Bearer ' + self.login_data['token']['accessToken']
         }
 
-        print(json.dumps(data))
         url = self.api_base_url + "Home/ActivateZoneBoost"
-        print url
 
         response = requests.post(url, data=json.dumps(data), headers=headers, timeout=10)
 
@@ -287,7 +285,6 @@ class EphEmber:
         }
 
         url = self.api_base_url + "Home/DeActivateZoneBoost"
-        print json.dumps(data)
         response = requests.post(url, data=json.dumps(data), headers=headers, timeout=10)
 
         if response.status_code != 200:
