@@ -306,7 +306,7 @@ class EphEmber:
 
         return boost_data.get("isSuccess", False)
 
-    def activatae_boost_by_name(self,
+    def activate_boost_by_name(self,
                                 zone_name,
                                 target_temperature,
                                 num_hours=1):
