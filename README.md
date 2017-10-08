@@ -13,7 +13,7 @@ Example basic usage
 
     >>> from pyephember.pyephember import EphEmber
     >>> e = EphEmber('my@username.com', 'mypassword')
-    >>> e.getZoneTemperature("MyZone")
+    >>> e.get_zone_temperature("MyZone")
 
 API
 ---
