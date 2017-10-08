@@ -9,6 +9,7 @@ import requests
 
 _LOGGER = logging.getLogger(__name__)
 
+
 class EphEmber:
     """Interacts with a EphEmber thermostat via API.
     Example usage: t = EphEmber('me@somewhere.com', 'mypasswd')
@@ -19,7 +20,8 @@ class EphEmber:
         """
         Check if a refresh of the token is needed
         """
-        expires_on = datetime.datetime.strptime(self.login_data['token']['expiresOn'], '%Y-%m-%dT%H:%M:%SZ')
+        expires_on = datetime.datetime.strptime(
+            self.login_data['token']['expiresOn'], '%Y-%m-%dT%H:%M:%SZ')
         refresh_time = datetime.datetime.utcnow() + datetime.timedelta(seconds=30)
         if expires_on < refresh_time:
             return True
@@ -72,16 +74,15 @@ class EphEmber:
 
         url = self.api_base_url + "account/directlogin"
 
-        data = {'Email' : self.username,
+        data = {'Email': self.username,
                 'Password': self.password,
                 'RememberMe': 'True'
-            }
+                }
 
         response = requests.post(url, data=data, headers=headers, timeout=10)
 
         if response.status_code != 200:
             return False
-
 
         self.login_data = response.json()
         if not self.login_data['isSuccess']:
@@ -131,10 +132,12 @@ class EphEmber:
             'Authorization': 'bearer ' + self.login_data['token']['accessToken']
         }
 
-        response = requests.get(url, params=params, headers=headers, timeout=10)
+        response = requests.get(
+            url, params=params, headers=headers, timeout=10)
 
         if response.status_code != 200:
-            raise RuntimeError("{} response code when getting home".format(response.status_code))
+            raise RuntimeError(
+                "{} response code when getting home".format(response.status_code))
 
         home = response.json()
 
@@ -223,7 +226,6 @@ class EphEmber:
 
         return zone['isTargetTemperatureReached']
 
-
     def setTargetTemperatureByZoneid(self, zone_id, target_temperature):
         """
         Set the target temperature for a zone by id
@@ -244,7 +246,8 @@ class EphEmber:
 
         url = self.api_base_url + "Home/ZoneTargetTemperature"
 
-        response = requests.post(url, data=json.dumps(data), headers=headers, timeout=10)
+        response = requests.post(url, data=json.dumps(
+            data), headers=headers, timeout=10)
 
         if response.status_code != 200:
             return False
@@ -263,7 +266,6 @@ class EphEmber:
             raise RuntimeError("Unknown zone")
 
         return self.setTargetTemperatureByZoneId(zone["zoneId"], target_temperature)
-
 
     def activateBoostByZoneId(self, zone_id, target_temperature, num_hours=1):
         """
@@ -287,7 +289,8 @@ class EphEmber:
 
         url = self.api_base_url + "Home/ActivateZoneBoost"
 
-        response = requests.post(url, data=json.dumps(data), headers=headers, timeout=10)
+        response = requests.post(url, data=json.dumps(
+            data), headers=headers, timeout=10)
 
         if response.status_code != 200:
             return False
@@ -295,7 +298,6 @@ class EphEmber:
         boost_data = response.json()
 
         return boost_data.get("isSuccess", False)
-
 
     def activateBoostByZoneName(self, zone_name, target_temperature, num_hours=1):
         """
@@ -307,7 +309,6 @@ class EphEmber:
             raise RuntimeError("Unknown zone")
 
         return self.activateBoostByZoneId(zone["zoneId"], target_temperature, num_hours)
-
 
     def deactivateBoostByZoneId(self, zone_id):
         """
@@ -326,7 +327,8 @@ class EphEmber:
         }
 
         url = self.api_base_url + "Home/DeActivateZoneBoost"
-        response = requests.post(url, data=json.dumps(data), headers=headers, timeout=10)
+        response = requests.post(url, data=json.dumps(
+            data), headers=headers, timeout=10)
 
         if response.status_code != 200:
             return False
@@ -334,7 +336,6 @@ class EphEmber:
         boost_data = response.json()
 
         return boost_data.get("isSuccess", False)
-
 
     def deactivateBoostByZoneName(self, zone_name):
         """
@@ -346,7 +347,6 @@ class EphEmber:
             raise RuntimeError("Unknown zone")
 
         return self.deactivateBoostByZoneId(zone["zoneId"])
-
 
     # Ctor
     def __init__(self, username, password, cache_home=False):
