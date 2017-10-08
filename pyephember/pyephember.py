@@ -224,6 +224,47 @@ class EphEmber:
         return zone['isTargetTemperatureReached']
 
 
+    def setTargetTemperatureByZoneid(self, zone_id, target_temperature):
+        """
+        Set the target temperature for a zone by id
+        """
+        if not self._do_auth():
+            raise RuntimeError("Unable to login")
+
+        data = {
+            "ZoneId": zone_id,
+            "TargetTemperature": target_temperature
+        }
+
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            'Authorization': 'Bearer ' + self.login_data['token']['accessToken']
+        }
+
+        url = self.api_base_url + "Home/ZoneTargetTemperature"
+
+        response = requests.post(url, data=json.dumps(data), headers=headers, timeout=10)
+
+        if response.status_code != 200:
+            return False
+
+        zone_change_data = response.json()
+
+        return zone_change_data.get("isSuccess", False)
+
+    def setTargetTemperatureByZoneName(self, zone_name, target_temperature):
+        """
+        Set the target temperature for a zone by name
+        """
+        zone = self.getZone(zone_name)
+
+        if zone is None:
+            raise RuntimeError("Unknown zone")
+
+        return self.setTargetTemperatureByZoneId(zone["zoneId"], target_temperature)
+
+
     def activateBoostByZoneId(self, zone_id, target_temperature, num_hours=1):
         """
         Activate boost for a zone based on the numeric id
