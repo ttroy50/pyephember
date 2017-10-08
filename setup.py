@@ -15,4 +15,9 @@ setup(name='pyephember',
       install_requires=[
           'requests',
       ],
+      test_requires=[
+          'tox',
+          'flake8',
+          'pylint'
+      ]
      )

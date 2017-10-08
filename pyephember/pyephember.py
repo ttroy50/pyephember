@@ -2,6 +2,7 @@
 PyEphEmber interface implementation for https://ember.ephcontrols.com/
 """
 
+
 import logging
 import json
 import datetime
@@ -16,17 +17,16 @@ class EphEmber:
                    t.getZoneTemperature('myzone') # Get temperature
     """
 
+    # pylint: disable=too-many-instance-attributes
+
     def _requires_refresh_token(self):
         """
         Check if a refresh of the token is needed
         """
         expires_on = datetime.datetime.strptime(
             self.login_data['token']['expiresOn'], '%Y-%m-%dT%H:%M:%SZ')
-        refresh_time = datetime.datetime.utcnow() + datetime.timedelta(seconds=30)
-        if expires_on < refresh_time:
-            return True
-        else:
-            return False
+        refresh = datetime.datetime.utcnow() + datetime.timedelta(seconds=30)
+        return expires_on < refresh
 
     def _request_token(self, force=False):
         """
@@ -42,7 +42,8 @@ class EphEmber:
 
         headers = {
             "Accept": "application/json",
-            'Authorization': 'Bearer ' + self.login_data['token']['accessToken']
+            'Authorization':
+                'Bearer ' + self.login_data['token']['accessToken']
         }
 
         url = self.api_base_url + "account/RefreshToken"
@@ -52,7 +53,7 @@ class EphEmber:
         if response.status_code != 200:
             return False
 
-        self.refresh_data = response.json()
+        refresh_data = response.json()
 
         if 'token' not in refresh_data:
             return False
@@ -76,8 +77,7 @@ class EphEmber:
 
         data = {'Email': self.username,
                 'Password': self.password,
-                'RememberMe': 'True'
-                }
+                'RememberMe': 'True'}
 
         response = requests.post(url, data=data, headers=headers, timeout=10)
 
@@ -89,7 +89,8 @@ class EphEmber:
             self.login_data = None
             return False
 
-        if 'token' in self.login_data and 'accessToken' in self.login_data['token']:
+        if ('token' in self.login_data
+                and 'accessToken' in self.login_data['token']):
             self.home_id = self.login_data['token']['currentHomeId']
             self.user_id = self.login_data['token']['userId']
             return True
@@ -103,11 +104,11 @@ class EphEmber:
         """
         if self.login_data is None:
             return self._login()
-        else:
-            return self._request_token()
+
+        return self._request_token()
 
     # Public interface
-    def getHome(self, home_id=None):
+    def get_home(self, home_id=None):
         """
         Get the data about a home
         """
@@ -129,7 +130,8 @@ class EphEmber:
 
         headers = {
             "Accept": "application/json",
-            'Authorization': 'bearer ' + self.login_data['token']['accessToken']
+            'Authorization':
+                'bearer ' + self.login_data['token']['accessToken']
         }
 
         response = requests.get(
@@ -137,21 +139,23 @@ class EphEmber:
 
         if response.status_code != 200:
             raise RuntimeError(
-                "{} response code when getting home".format(response.status_code))
+                "{} response code when getting home".format(
+                    response.status_code))
 
         home = response.json()
 
         if self.cache_home:
             self.home = home
-            self.home_refresh_at = datetime.datetime.utcnow() + datetime.timedelta(minutes=5)
+            self.home_refresh_at = (datetime.datetime.utcnow()
+                                    + datetime.timedelta(minutes=5))
 
         return home
 
-    def getZones(self):
+    def get_zones(self):
         """
         Get all zones
         """
-        home_data = self.getHome()
+        home_data = self.get_home()
         if not home_data['isSuccess']:
             return []
 
@@ -163,70 +167,70 @@ class EphEmber:
 
         return zones
 
-    def getZoneNames(self):
+    def get_zone_names(self):
         """
         Get the name of all zones
         """
         zone_names = []
-        for zone in self.getZones():
+        for zone in self.get_zones():
             zone_names.append(zone['name'])
 
         return zone_names
 
-    def getZone(self, zone_name):
+    def get_zone(self, zone_name):
         """
         Get the information about a particular zone
         """
-        for zone in self.getZones():
+        for zone in self.get_zones():
             if zone_name == zone['name']:
                 return zone
 
         raise RuntimeError("Unknown zone")
 
-    def isZoneActive(self, zone_name):
+    def is_zone_active(self, zone_name):
         """
         Check if a zone is active
         """
-        zone = self.getZone(zone_name)
+        zone = self.get_zone(zone_name)
         if zone is None:
             raise RuntimeError("Unable to get zone")
 
         return zone['isCurrentlyActive']
 
-    def getZoneTemperature(self, zone_name):
+    def get_zone_temperature(self, zone_name):
         """
         Get the temperature for a zone
         """
-        zone = self.getZone(zone_name)
+        zone = self.get_zone(zone_name)
 
         if zone is None:
             raise RuntimeError("Unknown zone")
 
         return zone['currentTemperature']
 
-    def isBoostActive(self, zone_name):
+    def is_boost_active(self, zone_name):
         """
         Check if a zone is active
         """
-        zone = self.getZone(zone_name)
+        zone = self.get_zone(zone_name)
 
         if zone is None:
             raise RuntimeError("Unknown zone")
 
         return zone['isBoostActive']
 
-    def isTargetTemperatureReached(self, zone_name):
+    def is_target_temperature_reached(self, zone_name):
         """
         Check if a zone is active
         """
-        zone = self.getZone(zone_name)
+        zone = self.get_zone(zone_name)
 
         if zone is None:
             raise RuntimeError("Unknown zone")
 
         return zone['isTargetTemperatureReached']
 
-    def setTargetTemperatureByZoneid(self, zone_id, target_temperature):
+    def set_target_temperature_by_id(self, zone_id, target_temperature):
         """
         Set the target temperature for a zone by id
         """
@@ -241,7 +245,8 @@ class EphEmber:
         headers = {
             "Accept": "application/json",
             "Content-Type": "application/json",
-            'Authorization': 'Bearer ' + self.login_data['token']['accessToken']
+            'Authorization':
+                'Bearer ' + self.login_data['token']['accessToken']
         }
 
         url = self.api_base_url + "Home/ZoneTargetTemperature"
@@ -256,18 +261,19 @@ class EphEmber:
 
         return zone_change_data.get("isSuccess", False)
 
-    def setTargetTemperatureByZoneName(self, zone_name, target_temperature):
+    def set_target_temperture_by_name(self, zone_name, target_temperature):
         """
         Set the target temperature for a zone by name
         """
-        zone = self.getZone(zone_name)
+        zone = self.get_zone(zone_name)
 
         if zone is None:
             raise RuntimeError("Unknown zone")
 
-        return self.setTargetTemperatureByZoneId(zone["zoneId"], target_temperature)
+        return self.set_target_temperature_by_id(zone["zoneId"],
+                                                 target_temperature)
 
-    def activateBoostByZoneId(self, zone_id, target_temperature, num_hours=1):
+    def activate_boost_by_id(self, zone_id, target_temperature, num_hours=1):
         """
         Activate boost for a zone based on the numeric id
         """
@@ -284,7 +290,8 @@ class EphEmber:
         headers = {
             "Accept": "application/json",
             "Content-Type": "application/json",
-            'Authorization': 'Bearer ' + self.login_data['token']['accessToken']
+            'Authorization':
+                'Bearer ' + self.login_data['token']['accessToken']
         }
 
         url = self.api_base_url + "Home/ActivateZoneBoost"
@@ -299,18 +306,22 @@ class EphEmber:
 
         return boost_data.get("isSuccess", False)
 
-    def activateBoostByZoneName(self, zone_name, target_temperature, num_hours=1):
+    def activatae_boost_by_name(self,
+                                zone_name,
+                                target_temperature,
+                                num_hours=1):
         """
         Activate boost by the name of the zone
         """
 
-        zone = self.getZone(zone_name)
+        zone = self.get_zone(zone_name)
         if zone is None:
             raise RuntimeError("Unknown zone")
 
-        return self.activateBoostByZoneId(zone["zoneId"], target_temperature, num_hours)
+        return self.activate_boost_by_id(zone["zoneId"],
+                                         target_temperature, num_hours)
 
-    def deactivateBoostByZoneId(self, zone_id):
+    def deactivate_boost_by_id(self, zone_id):
         """
         Deactivate boost for a zone based on the numeric id
         """
@@ -323,7 +334,8 @@ class EphEmber:
         headers = {
             "Accept": "application/json",
             "Content-Type": "application/json",
-            'Authorization': 'Bearer ' + self.login_data['token']['accessToken']
+            'Authorization':
+                'Bearer ' + self.login_data['token']['accessToken']
         }
 
         url = self.api_base_url + "Home/DeActivateZoneBoost"
@@ -337,16 +349,16 @@ class EphEmber:
 
         return boost_data.get("isSuccess", False)
 
-    def deactivateBoostByZoneName(self, zone_name):
+    def deactivate_boost_by_name(self, zone_name):
         """
         Deactivate boost by the name of the zone
         """
 
-        zone = self.getZone(zone_name)
+        zone = self.get_zone(zone_name)
         if zone is None:
             raise RuntimeError("Unknown zone")
 
-        return self.deactivateBoostByZoneId(zone["zoneId"])
+        return self.deactivate_boost_by_id(zone["zoneId"])
 
     # Ctor
     def __init__(self, username, password, cache_home=False):

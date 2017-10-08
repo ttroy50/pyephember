@@ -32,17 +32,17 @@ def main():
         return 1
 
     # Get the full home information
-    print(json.dumps(t.getHome(), indent=4, sort_keys=True))
+    print(json.dumps(t.get_home(), indent=4, sort_keys=True))
     print("----------------------------------")
     # Get only zone information
-    print(json.dumps(t.getZones(), indent=4, sort_keys=True))
+    print(json.dumps(t.get_zones(), indent=4, sort_keys=True))
     print("----------------------------------")
     # Get a zone by name
-    print(json.dumps(t.getZone(args.zone_name), indent=4, sort_keys=True))
+    print(json.dumps(t.get_zone(args.zone_name), indent=4, sort_keys=True))
     print("----------------------------------")
     # Get information about a zone
-    print("{} current temperature is {}".format(args.zone_name, t.getZoneTemperature(args.zone_name)))
-    print("{} active : {}".format(args.zone_name, t.isZoneActive(args.zone_name)))
+    print("{} current temperature is {}".format(args.zone_name, t.get_zone_temperature(args.zone_name)))
+    print("{} active : {}".format(args.zone_name, t.is_zone_active(args.zone_name)))
 
     return 0
 

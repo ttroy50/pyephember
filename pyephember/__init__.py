@@ -1,3 +1,5 @@
-# EphEmber control module
+"""
+PyEphEmber interface implementation for https://ember.ephcontrols.com/
+"""
 
-__all__ = ['EphEmber']
+__all__ = ['pyephember']
