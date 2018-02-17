@@ -1,4 +1,4 @@
-from pyephember.pyephember import EphEmber
+from pyephember.pyephember import EphEmber, ZoneMode
 import argparse
 import sys
 import getpass
@@ -23,7 +23,7 @@ def main():
         try:
             password = getpass.getpass()
         except:
-            print "Unable to get password"
+            print("Unable to get password")
 
     try:
         t = EphEmber(args.email, password, cache_home=args.cache_home)
@@ -43,7 +43,7 @@ def main():
     # Get information about a zone
     print("{} current temperature is {}".format(args.zone_name, t.get_zone_temperature(args.zone_name)))
     print("{} active : {}".format(args.zone_name, t.is_zone_active(args.zone_name)))
-
+    print("{} mode : {}".format(args.zone_name, t.get_zone_mode(args.zone_name).name))
     return 0
 
 if __name__ == '__main__':

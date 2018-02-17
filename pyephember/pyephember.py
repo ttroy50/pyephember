@@ -6,9 +6,19 @@ PyEphEmber interface implementation for https://ember.ephcontrols.com/
 import logging
 import json
 import datetime
+from enum import Enum
 import requests
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class ZoneMode(Enum):
+    """ Modes that a zone can be set too
+    """
+    AUTO = 0
+    ALL_DAY = 1
+    ON = 2
+    OFF = 3
 
 
 class EphEmber:
@@ -359,6 +369,58 @@ class EphEmber:
             raise RuntimeError("Unknown zone")
 
         return self.deactivate_boost_by_id(zone["zoneId"])
+
+    def set_mode_by_id(self, zone_id, mode):
+        """
+        Set the mode by using the zone id
+        Supported zones are available in the enum Mode
+        """
+        if not self._do_auth():
+            raise RuntimeError("Unable to login")
+
+        data = {
+            "ZoneId": zone_id,
+            "mode": mode.value
+        }
+
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            'Authorization':
+                'Bearer ' + self.login_data['token']['accessToken']
+        }
+
+        url = self.api_base_url + "Home/SetZoneMode"
+        response = requests.post(url, data=json.dumps(
+            data), headers=headers, timeout=10)
+
+        if response.status_code != 200:
+            return False
+
+        mode_data = response.json()
+
+        return mode_data.get("isSuccess", False)
+
+    def set_mode_by_name(self, zone_name, mode):
+        """
+        Set the mode by using the name of the zone
+        """
+        zone = self.get_zone(zone_name)
+        if zone is None:
+            raise RuntimeError("Unknown zone")
+
+        return self.set_mode_by_id(zone["zoneId"], mode)
+
+    def get_zone_mode(self, zone_name):
+        """
+        Get the mode for a zone
+        """
+        zone = self.get_zone(zone_name)
+
+        if zone is None:
+            raise RuntimeError("Unknown zone")
+
+        return ZoneMode(zone['mode'])
 
     # Ctor
     def __init__(self, username, password, cache_home=False):

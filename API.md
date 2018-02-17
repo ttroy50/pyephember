@@ -1041,6 +1041,50 @@ The respones is a simple JSON structure with isSuccess and message variables.
 }
 ```
 
+## Set Zone Mode / Run Selection
+
+Modes control when your heating controls will be turn on. The supported modes are
+
+* Off - 3 - Always off
+* On - 2 - Always on
+* All Day - 1 - Starts at start time of period 1 and ends at the end time of period 3
+* Auto - 0 - Based on the times you have configured.
+
+This is equalivent to the "Run Selection" setting in the app.
+
+### Request
+
+The request is a POST to the URL $ENDPOINT/Home/SetZoneMode, passing up JSON data with the required information.
+
+```
+POST /api/Home/SetZoneMode HTTP/1.1
+Authorization	bearer really_long_access_token
+Accept	application/json
+Content-Type	application/json
+Content-Length	59
+Host	ember.ephcontrols.com
+```
+
+The JSON data to pass up includes the ZoneId and the tempetature.
+
+```
+{
+	"ZoneId": 3000,
+	"mode": 0
+}
+```
+
+# Response
+
+The respones is a simple JSON structure with isSuccess and message variables.
+
+```
+{
+	"isSuccess": true,
+	"message": null
+}
+```
+
 ## Other API Calls
 
 Some other calls that I have seen but not investigated include:
