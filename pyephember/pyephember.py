@@ -265,17 +265,22 @@ class EphEmber:
             self._home_refresh_at = (datetime.datetime.utcnow()
                                      + datetime.timedelta(minutes=5))
 
-        return home
+        status = home.get('status', 1)
+        if status != 0:
+            raise RuntimeError(
+                "Error getting zones from home: {}".format(status))
+
+        return home["data"]
 
     def get_zones(self):
         """
         Get all zones
         """
         home_data = self.get_home()
-        if home_data['status'] != 0:
+        if not home_data:
             return []
 
-        return home_data['data']
+        return home_data
 
     def get_zone_names(self):
         """
