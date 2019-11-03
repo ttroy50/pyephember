@@ -946,7 +946,7 @@ To get the data for a single zone POST the `zoneid` to `zones/data`.
 ### Request
 
 ```
-POST /ember-back/zones/setModel HTTP/1.1
+POST /ember-back/zones/data HTTP/1.1
 Authorization	long_token
 Accept	application/json
 ```

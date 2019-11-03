@@ -33,6 +33,8 @@ def zone_is_active(zone):
             return False
         if "active " in zone["prefix"]:
             return True
+        if "ON mode" in zone["prefix"]:
+            return True
     return zone["isboostactive"] or zone["isadvanceactive"]
 
 
@@ -482,7 +484,7 @@ class EphEmber:
 
         data = {
             "zoneid": zone_id,
-            "mode": mode.value
+            "model": mode.value
         }
 
         headers = {
@@ -492,7 +494,7 @@ class EphEmber:
                 self._login_data["data"]["token"]
         }
 
-        url = "{}{}".format(self.api_base_url, "Home/SetZoneMode")
+        url = "{}{}".format(self.api_base_url, "zones/setModel")
         response = requests.post(url, data=json.dumps(
             data), headers=headers, timeout=10)
 
