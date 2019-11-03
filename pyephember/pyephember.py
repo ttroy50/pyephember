@@ -13,7 +13,8 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class ZoneMode(Enum):
-    """ Modes that a zone can be set too
+    """
+    Modes that a zone can be set too
     """
     AUTO = 0
     ALL_DAY = 1
@@ -78,7 +79,8 @@ def zone_mode(zone):
 
 
 class EphEmber:
-    """Interacts with a EphEmber thermostat via API.
+    """
+    Interacts with a EphEmber thermostat via API.
     Example usage: t = EphEmber('me@somewhere.com', 'mypasswd')
                    t.getZoneTemperature('myzone') # Get temperature
     """
@@ -148,9 +150,7 @@ class EphEmber:
         url = "{}{}".format(self.api_base_url, "appLogin/login")
 
         data = {'userName': self._username,
-                'password': self._password,
-                'model': 'iPhone 7',
-                'os': '13.1.3'}
+                'password': self._password}
 
         response = requests.post(url, data=json.dumps(
             data), headers=headers, timeout=10)
@@ -181,7 +181,12 @@ class EphEmber:
         return self._request_token()
 
     def _get_first_gateway_id(self):
-        return self._homes['data'][0]['gatewayid']
+        """
+        Get the first gatewayid associated with the account
+        """
+        if not self._homes:
+            raise RuntimeError("Cannot get gateway id from list of homes.")
+        return self._homes[0]['gatewayid']
 
     # Public interface
     def list_homes(self):
@@ -191,7 +196,7 @@ class EphEmber:
         if not self._do_auth():
             raise RuntimeError("Unable to login")
 
-        url = self.api_base_url + "homes/list"
+        url = "{}{}".format(self.api_base_url, "homes/list")
         headers = {
             "Accept": "application/json",
             'Authorization':
@@ -206,11 +211,18 @@ class EphEmber:
                 "{} response code when getting home".format(
                     response.status_code))
 
-        return response.json()
+        homes = response.json()
+        status = homes.get('status', 1)
+        if status != 0:
+            raise RuntimeError("Error getting home: {}".format(status))
+
+        return homes.get("data", [])
 
     def get_home(self, gateway_id=None):
         """
-        Get the data about a home
+        Get the data about a home.
+        If not gateway_id is passed. A list_homes call is made and the
+        first gateway from that is used.
         """
         now = datetime.datetime.utcnow()
         if self._home and now < self._home_refresh_at:
@@ -224,7 +236,7 @@ class EphEmber:
                 self._homes = self.list_homes()
             gateway_id = self._get_first_gateway_id()
 
-        url = self.api_base_url + "zones/polling"
+        url = "{}{}".format(self.api_base_url, "zones/polling")
 
         data = {
             "gateWayId": gateway_id
@@ -346,7 +358,7 @@ class EphEmber:
                 self._login_data["data"]["token"]
         }
 
-        url = self.api_base_url + "zones/setTargetTemperature"
+        url = "{}{}".format(self.api_base_url, "zones/setTargetTemperature")
 
         response = requests.post(url, data=json.dumps(
             data), headers=headers, timeout=10)
@@ -390,7 +402,7 @@ class EphEmber:
                 self._login_data["data"]["token"]
         }
 
-        url = self.api_base_url + "zones/boost"
+        url = "{}{}".format(self.api_base_url, "zones/boost")
 
         response = requests.post(url, data=json.dumps(
             data), headers=headers, timeout=10)
@@ -424,9 +436,7 @@ class EphEmber:
         if not self._do_auth():
             raise RuntimeError("Unable to login")
 
-        data = {
-            "zoneid": zone_id
-        }
+        data = {"zoneid": zone_id}
 
         headers = {
             "Accept": "application/json",
@@ -435,7 +445,7 @@ class EphEmber:
                 self._login_data["data"]["token"]
         }
 
-        url = self.api_base_url + "zones/cancelBoost"
+        url = "{}{}".format(self.api_base_url, "zones/cancelBoost")
         response = requests.post(url, data=json.dumps(
             data), headers=headers, timeout=10)
 
@@ -477,7 +487,7 @@ class EphEmber:
                 self._login_data["data"]["token"]
         }
 
-        url = self.api_base_url + "Home/SetZoneMode"
+        url = "{}{}".format(self.api_base_url, "Home/SetZoneMode")
         response = requests.post(url, data=json.dumps(
             data), headers=headers, timeout=10)
 
@@ -518,15 +528,19 @@ class EphEmber:
     # Ctor
     def __init__(self, username, password, cache_home=False):
         """Performs login and save session cookie."""
-        # HTTPS Interface
 
-        self._homes = None
         self._login_data = None
         self._username = username
         self._password = password
+
+        # This is the list of homes / gateways associated with the account.
+        self._homes = None
+
+        # This is the details of the home / zones for a single  home.
         self._cache_home = cache_home
         self._home_refresh_at = None
         self._home = None
+
         self.api_base_url = 'https://eu-https.topband-cloud.com/ember-back/'
         self._refresh_token_validity_seconds = 1800
 
