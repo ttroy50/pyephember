@@ -572,9 +572,9 @@ JSON
 }
 ```
 
-## Get Details of Home
+## Get Details of Zones
 
-To get the details of the home post the `gatewayid` to `zones/polling`
+To get the details of the zones post the `gatewayid` to `zones/polling`
 
 ```
 POST /ember-back/zones/polling HTTP/1.1
