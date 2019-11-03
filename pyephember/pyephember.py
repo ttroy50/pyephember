@@ -517,7 +517,7 @@ class EphEmber:
         if zone is None:
             raise RuntimeError("Unknown zone")
 
-        return ZoneMode(zone['mode'])
+        return zone_mode(zone)
 
     def reset_login(self):
         """
