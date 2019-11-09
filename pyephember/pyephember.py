@@ -84,7 +84,7 @@ class EphEmber:
     """
     Interacts with a EphEmber thermostat via API.
     Example usage: t = EphEmber('me@somewhere.com', 'mypasswd')
-                   t.getZoneTemperature('myzone') # Get temperature
+                   t.get_zone_temperature('myzone') # Get temperature
     """
 
     # pylint: disable=too-many-instance-attributes
