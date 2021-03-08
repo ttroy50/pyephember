@@ -1,10 +1,31 @@
 # API
 
-The ember API is a HTTPs endpoint that returns data in JSON. The base URL is https://eu-https.topband-cloud.com/ember-back. This will be referred to as $ENDPOINT for the rest of the document. 
-
 Note: I have no connection with EPHControls and this API may be subject to change. Use of this API is at your own risk.
 
-Some of the basic calls are described below:
+## API versions
+
+The ember API was updated in January 2021 and users are slowly being moved to the new API. The document describing the old API from 2020 is available from [here](AIP_2020.md)
+
+## Intro
+
+The ember API is a dual HTTPs and MQTT endpoint. 
+
+HTTP with JSON is used for authentication, admin, and getting zone information. 
+
+MQTT with JSON is used for reading and updating some zone information (e.g. target temperature)
+
+## URLS
+
+### HTTP
+
+The base HTTP URL is https://eu-https.topband-cloud.com/ember-back. This will be referred to as $HTTP_ENDPOINT for the rest of the document. 
+
+### MQTT
+
+The MQTT URL used is eu-base-mqtt.topband-cloud.com:18883 and uses TLS to encrypt the traffic. This will be referred to as $MQTT_ENDPOINT for the rest of the document.
+
+
+# API Calls
 
 ## Login
 
@@ -14,10 +35,10 @@ You can use any valid user for this but it would be a good idea to not use the s
 
 ### Request
 
-To login for the first time send a POST to $ENDPOINT/appLogin/login with a JSON request containing your username and password.
+To login for the first time send a POST to $HTTP_ENDPOINT/appLogin/login with a JSON request containing your username and password.
 
 ```
-POST /ember-back/appLogin/login HTTP/1.1
+POST /ember-back/appLogin/login HTTP/2.0
 Accept	application/json
 Content-Type	application/json;charset=utf-8
 ```
@@ -27,8 +48,10 @@ The form data to POST is
 ```
 {
 	"password": "password",
-	"model": "iPhone 7",
-	"os": "13.1.3",
+	"model": "iPhone XS",
+	"os": "13.5",
+	"type": 2,
+	"appVersion": "2.0.4",
 	"userName": "user@email.com"
 }
 ```
@@ -45,25 +68,27 @@ The response is JSON in the format
 	},
 	"message": null,
 	"status": 0,
-	"timestamp": 1572386460000
+	"timestamp": 1615150233365
 }
 ```
 
 The `token` is required for subsequent requests so it is important to keep this, this should be sent in the Authorization header for all other requests. 
 
+The `refresh_token` can be used to update the authorization token and should be kept if you are planning on having longer sessions.
+
 ## Refresh Auth Token
 
-To refresh your access token, send a GET to `$ENDPOINT/appLogin/refreshAccessToken` using the `refresh_token` from your login request in the Authorization header 
+To refresh your access token, send a GET to `$HTTP_ENDPOINT/appLogin/refreshAccessToken` using the `refresh_token` from your login request in the Authorization header 
 
 It is unclear how long an access token last for however, it looks to last at least 1 hour. 
 
 ```
-GET /ember-back/appLogin/refreshAccessToken HTTP/1.1
+GET /ember-back/appLogin/refreshAccessToken HTTP/2.0
 Accept	application/json
 Authorization	long_refresh_token
 ```
 
-### Request
+### Response
 
 The response contains the new authorization and refresh tokens.
 
@@ -79,16 +104,114 @@ The response contains the new authorization and refresh tokens.
 }
 ```
 
+## Report Token
+
+The report token message is sent after login. It is unknown that this message does but I don't believe it is required for general usage of the API.
+
+### Request
+
+The request is a POST to `$HTTP_ENDPOING/user/reportToken` 
+
+```
+GET /ember-back/user/reportToken HTTP/2.0
+Authorization	long_token
+Accept	application/json
+```
+
+With the following JSON
+
+```
+{
+	"os": "ios",
+	"phoneToken": "really_long_phone_token",
+	"type": 1,
+	"appVersion": "2.0.4"
+}
+```
+
+### Response
+
+The response is the following JSON.
+
+```
+{
+	"data": null,
+	"message": null,
+	"status": 0,
+	"timestamp": 1615150233469
+}
+```
+
+
+## Select User
+
+After login the select user call is made to get user information for the app. 
+
+
+To make a call to select user send a GET request to `$HTTP_ENDPOING/user/selectUser` with the token in the Authourization header. 
+
+### Request
+
+```
+GET /ember-back/user/selectUser HTTP/2.0
+Authorization	long_token
+Accept	application/json
+```
+
+### Response
+
+The response is a JSON message that includes information about the user.
+
+
+```
+
+{
+	"data": {
+		"accessfailedcount": 0,
+		"appVersion": "2.0.4",
+		"areacode": null,
+		"email": "user@email.com",
+		"emailconfirmed": true,
+		"firstname": "Me",
+		"id": 1111,
+		"ip": null,
+		"lastname": "Me",
+		"lockoutenabled": true,
+		"lockoutenddateutc": null,
+		"model": "iPhone XS",
+		"newsmarketing": false,
+		"os": "13.5",
+		"phonenumber": "0871234567",
+		"phonenumberconfirmed": false,
+		"primaryexternalloginprovider": null,
+		"profilepictureuri": null,
+		"profilepicurelastsynced": null,
+		"protocolstatus": 1,
+		"registrationtime": null,
+		"securitystamp": "f9e3098b-7b99-45a0-bc23-7f4b399edde6",
+		"synchroniseprofilepicture": false,
+		"systemmaintenance": false,
+		"twofactorenabled": false,
+		"type": 2,
+		"useprimaryexternalproviderpicture": false,
+		"username": "user@email.com"
+	},
+	"message": "The query is successful",
+	"status": 0,
+	"timestamp": 1615150233473
+}
+```
+
 ## Get Available Homes
 
 To get the list of available homes 
 
 ### Request
 
-The request is a GET to the URL $ENDPOINT/homes/list.
+The request is a GET to the URL `$ENDPOINT/homes/list`.
 
 ```
-GET /ember-back/homes/list HTTP/1.1
+GET /ember-back/homes/list HTTP/2.0
 Authorization	long_token
 Accept	application/json
 Content-Length	0
@@ -103,14 +226,24 @@ The response is a JSON Blob describing the homes available to your account.
 	"data": [{
 		"deviceType": 1,
 		"gatewayid": "gwid1234",
-		"invitecode": "ABDC",
+		"invitecode": "ABCD",
 		"name": "Home",
+		"productId": null,
 		"uid": null,
 		"zoneCount": 2
+	}, {
+		"deviceType": 3,
+		"gatewayid": "gwid1111",
+		"invitecode": "DDDD",
+		"name": "Home",
+		"productId": "1234abcd",
+		"uid": "011011",
+		"zoneCount": 1
 	}],
 	"message": "succ.",
 	"status": 0,
-	"timestamp": 1572386460293
+	"timestamp": 1615150233565
+}
 ```
 
 The `gatewayid` is required for later requests to identify the home that is being controlled.
@@ -125,7 +258,7 @@ To get details of your home, you should use the `gatewayid` returned from the `h
 The request is a POST to the URL `$ENDPOINT/homes/detail` passing the `gatewayid` in a JSON request
 
 ```
-GET /ember-back/homes/detail HTTP/1.1
+GET /ember-back/homes/detail HTTP/2.0
 Authorization	long_token
 Accept	application/json
 ```
@@ -134,7 +267,7 @@ The JSON to send is:
 
 ```
 {
-	"gateWayId": "gwid1234"
+	"gateWayId": "gwid1111"
 }
 ```
 
@@ -149,7 +282,7 @@ The response is JSON
 			"holidaymodescheduled": false,
 			"newuserhasjoinedhome": true,
 			"userhaslefthome": true,
-			"userid": 1001,
+			"userid": 1111,
 			"zoneboostactivated": false,
 			"zonescheduleupdated": false
 		},
@@ -158,55 +291,158 @@ The response is JSON
 			"boost": true,
 			"eventmanagement": true,
 			"holidays": true,
-			"homemanagement": true,
-			"homeuserid": 1000,
-			"roleId": 3,
+			"homemanagement": false,
+			"homeuserid": "homeuserid980",
+			"roleId": 5,
 			"scenariomanagement": true,
 			"schedulesmanagement": true
 		},
+		"wifiVersion": 100116,
 		"homes": {
-			"addoffsettogetlocal": true,
-			"addoffsettogetutc": false,
-			"backlightmodeisactive": false,
-			"deviceType": 1,
-			"frostprotectionenabled": true,
-			"frostprotectiontemperature": 5.00,
-			"gatewaydatetime": "2019-10-29 22:33:58.000",
-			"gatewayid": "gwid1234",
-			"holidayStatus": 0,
-			"holidaymodeactive": false,
-			"homeid": 2000,
-			"invitecode": "ABCD",
-			"isfrostprotectionactive": false,
-			"isonline": true,
-			"lastrefreshed": "2019-10-29 22:33:58.000",
+			"deviceType": 3,
+			"frostprotectionenabled": null,
+			"gatewayid": "gwid1111",
+			"holidaymodeactive": null,
+			"invitecode": "59A64",
 			"name": "Home",
-			"portnumber": 0,
-			"quickboosttemperature": 23.00,
-			"receivers": [],
+			"pointDataList": [{
+				"createTime": "2021-01-29 14:01:55",
+				"delFlag": 0,
+				"deviceId": "deviceidc99999",
+				"id": "id444",
+				"pointAttribute": null,
+				"pointIndex": 6,
+				"pointName": "FrostEnable",
+				"pointType": 1,
+				"productId": "productid135",
+				"uid": "uid011",
+				"updateTime": "2021-01-29 14:01:55",
+				"value": "1"
+			}, {
+				"createTime": "2021-01-29 14:01:55",
+				"delFlag": 0,
+				"deviceId": "deviceid07",
+				"id": "pdlidc3ce",
+				"pointAttribute": null,
+				"pointIndex": 8,
+				"pointName": "FrostSetTemp",
+				"pointType": 1,
+				"productId": "productid135",
+				"uid": "uid011",
+				"updateTime": "2021-01-29 14:01:55",
+				"value": "5"
+			}, {
+				"createTime": "2021-01-29 14:01:25",
+				"delFlag": 0,
+				"deviceId": "deviceidc99999",
+				"id": "pdlidf4a8",
+				"pointAttribute": null,
+				"pointIndex": 10,
+				"pointName": "HolidayEndTime",
+				"pointType": 5,
+				"productId": "productid135",
+				"uid": "uid011",
+				"updateTime": "2021-01-29 14:01:25",
+				"value": "0"
+			}, {
+				"createTime": "2021-01-29 14:01:55",
+				"delFlag": 0,
+				"deviceId": "deviceidc99999",
+				"id": "pdlid209b",
+				"pointAttribute": null,
+				"pointIndex": 2,
+				"pointName": "WifiRssi",
+				"pointType": 1,
+				"productId": "productid135",
+				"uid": "uid011",
+				"updateTime": "2021-01-29 14:01:55",
+				"value": "100"
+			}, {
+				"createTime": "2021-01-29 14:01:25",
+				"delFlag": 0,
+				"deviceId": "deviceidc99999",
+				"id": "pdlid6782a",
+				"pointAttribute": null,
+				"pointIndex": 4,
+				"pointName": "HolidayFlag",
+				"pointType": 1,
+				"productId": "productid135",
+				"uid": "uid011",
+				"updateTime": "2021-01-29 14:01:25",
+				"value": "0"
+			}, {
+				"createTime": "2021-01-29 14:01:25",
+				"delFlag": 0,
+				"deviceId": "deviceidc99999",
+				"id": "pdlid2498",
+				"pointAttribute": null,
+				"pointIndex": 5,
+				"pointName": "HolidayCnt",
+				"pointType": 5,
+				"productId": "productid135",
+				"uid": "uid011",
+				"updateTime": "2021-01-29 14:01:25",
+				"value": "0"
+			}, {
+				"createTime": "2021-01-29 14:01:25",
+				"delFlag": 0,
+				"deviceId": "deviceidc99999",
+				"id": "pdlid5aa6",
+				"pointAttribute": null,
+				"pointIndex": 9,
+				"pointName": "HolidayStartTime",
+				"pointType": 5,
+				"productId": "productid135",
+				"uid": "uid011",
+				"updateTime": "2021-01-29 14:01:25",
+				"value": "0"
+			}, {
+				"createTime": "2021-01-29 14:01:55",
+				"delFlag": 0,
+				"deviceId": "deviceidc99999",
+				"id": "pdlidcbf8",
+				"pointAttribute": null,
+				"pointIndex": 7,
+				"pointName": "NoFrostStatus",
+				"pointType": 1,
+				"productId": "productid135",
+				"uid": "uid011",
+				"updateTime": "2021-01-29 14:01:55",
+				"value": "0"
+			}],
+			"productId": "productid135",
+			"quickboosttemperature": 20.00,
 			"sysTemType": "EMBER-PS",
-			"utctimeoffset": "00:59:58.8658310",
-			"weatherlocation": "Dublin, IE",
-			"weatherlocationid": "1234578",
-			"zoneCount": 2
-		}
+			"uid": "uid011",
+			"weatherlocation": null,
+			"zoneCount": 1
+		},
+		"mcuVersion": 0
 	},
 	"message": "succ.",
 	"status": 0,
-	"timestamp": 1572386462651
+	"timestamp": 1615150236340
 }
 ```
 
-## Get Zone List
+### Notes
 
-To get list of zones for your home, you should use the `gatewayid` returned from the `homes/list` request above.
+This response contains information about the home and of particular for us is looking at the `pointDataList`. 
+
+Point Data is used as part of later JSON responses, and also as part of the MQTT requests and responses. The information from this requests can be used to help us find the index, type and initial value for a particular data list.
+
+
+
+## Get Zone Details
+
+To get details of your home, you should use the `gatewayid` returned from the `homesVT/zoneProgram` request above.
 
 ### Request
 
-The request is a POST to the URL `$ENDPOINT/homes/zoneList` passing the `gatewayid` in a JSON request
+The request is a POST to the URL `$ENDPOINT/homesVT/zoneProgram` passing the `gatewayid` in a JSON request
 
 ```
-GET /ember-back/homes/zoneList HTTP/1.1
+GET /ember-back/homesVT/zoneProgram HTTP/2.0
 Authorization	long_token
 Accept	application/json
 ```
@@ -215,1296 +451,268 @@ The JSON to send is:
 
 ```
 {
-	"gateWayId": "gwid1234"
+	"gateWayId": "gwid1111"
 }
 ```
 
 ### Response
 
-```
-{
-	"data": [{
-		"areaid": null,
-		"boostActivations": null,
-		"boostTime1": null,
-		"boostTime2": null,
-		"boostTime3": null,
-		"currenttemperature": 22.00,
-		"hardwareid": "0",
-		"homeName": null,
-		"isadvanceactive": false,
-		"isboostactive": false,
-		"ishotwater": false,
-		"isonline": true,
-		"mode": 0,
-		"name": "Heating",
-		"prefix": null,
-		"programmes": null,
-		"receiverid": 3000,
-		"scenarioScenarioid": null,
-		"status": 2,
-		"storedtargettemperature": 24.00,
-		"targettemperature": 24.00,
-		"zoneid": 7000
-	}, {
-		"areaid": null,
-		"boostActivations": null,
-		"boostTime1": null,
-		"boostTime2": null,
-		"boostTime3": null,
-		"currenttemperature": 50.50,
-		"hardwareid": "1",
-		"homeName": null,
-		"isadvanceactive": false,
-		"isboostactive": false,
-		"ishotwater": true,
-		"isonline": true,
-		"mode": 0,
-		"name": "Hot Water",
-		"prefix": null,
-		"programmes": null,
-		"receiverid": 3000,
-		"scenarioScenarioid": null,
-		"status": 1,
-		"storedtargettemperature": 55.00,
-		"targettemperature": 55.00,
-		"zoneid": 7100
-	}],
-	"message": "succ.",
-	"status": 0,
-	"timestamp": 1572386493495
-}
-```
-
-## Turn On Boost
-
-When turning on the boost you pass the `zoneId` that you would like to boost. This can be retrieved from the previous `zones/list` command.
-
-### Request
-
-```
-POST /ember-back/zones/boost HTTP/1.1
-Authorization	long_token
-Accept	application/json
-```
-
-The JSON to send is:
-
-```
-{
-	"hours": "1",
-	"zoneid": "7000",
-	"temperature": "24.0"
-}
-```
-# Response
-
-```
-{
-	"data": null,
-	"message": "succ.",
-	"status": 0,
-	"timestamp": 1572386496332
-}
-```
-
-## Turn Off Boost
-
-When turning off the boost you pass the `zoneId` that you would like to deactivate to `zones/cancelBoost`.
-
-### Request
-
-```
-POST /ember-back/zones/cancelBoost HTTP/1.1
-Authorization	long_token
-Accept	application/json
-```
-
-The JSON to send is:
-
-```
-{
-	"zoneid": "7000"
-}
-```
-# Response
-
-```
-{
-	"data": null,
-	"message": "succ.",
-	"status": 0,
-	"timestamp": 1572386496332
-}
-```
-
-## Get Boost Status
-
-To get the status of the boost for a zone you can POST the `zoneid` to `zones/getBoostFirstTime`
-
-### Request
-
-```
-POST /ember-back/zones/getBoostFirstTime HTTP/1.1
-Authorization	long_token
-Accept	application/json
-```
-
-The JSON to send is:
-
-```
-{
-	"zoneid": "7000"
-}
-```
-# Response
-
-```
-{
-	"data": {
-		"areaid": null,
-		"boostActivations": {
-			"activatedon": "2019-11-02 13:20:37.669",
-			"comments": null,
-			"dispayFinishdatetime": "2019-11-02 14:20:37.669",
-			"finishdatetime": "2019-11-02 14:20:37.669",
-			"numberofhours": 1,
-			"targettemperature": 24.00,
-			"userid": 1000,
-			"wascancelled": false,
-			"zoneboostactivationid": 1344098,
-			"zoneid": 7000
-		},
-		"boostTime1": null,
-		"boostTime2": null,
-		"boostTime3": null,
-		"currenttemperature": 22.40,
-		"hardwareid": "0",
-		"homeName": null,
-		"isadvanceactive": false,
-		"isboostactive": true,
-		"ishotwater": false,
-		"isonline": true,
-		"mode": 0,
-		"name": "Heating",
-		"prefix": null,
-		"programmes": {
-			"friday": {
-				"dayperiodid": 51822,
-				"p1": {
-					"endtime": "08:10",
-					"periodid": 155464,
-					"starttime": "07:20"
-				},
-				"p2": {
-					"endtime": "19:00",
-					"periodid": 155465,
-					"starttime": "18:00"
-				},
-				"p3": {
-					"endtime": "23:00",
-					"periodid": 155466,
-					"starttime": "21:30"
-				}
-			},
-			"fridayDayperiodid": 51822,
-			"monday": {
-				"dayperiodid": 51823,
-				"p1": {
-					"endtime": "09:20",
-					"periodid": 155467,
-					"starttime": "08:30"
-				},
-				"p2": {
-					"endtime": "14:30",
-					"periodid": 155468,
-					"starttime": "14:00"
-				},
-				"p3": {
-					"endtime": "19:30",
-					"periodid": 155469,
-					"starttime": "19:00"
-				}
-			},
-			"mondayDayperiodid": 51823,
-			"saturday": {
-				"dayperiodid": 51824,
-				"p1": {
-					"endtime": "09:20",
-					"periodid": 155470,
-					"starttime": "08:30"
-				},
-				"p2": {
-					"endtime": "14:30",
-					"periodid": 155471,
-					"starttime": "14:00"
-				},
-				"p3": {
-					"endtime": "19:30",
-					"periodid": 155472,
-					"starttime": "19:00"
-				}
-			},
-			"saturdayDayperiodid": 51824,
-			"sunday": {
-				"dayperiodid": 51825,
-				"p1": {
-					"endtime": "09:40",
-					"periodid": 155473,
-					"starttime": "08:40"
-				},
-				"p2": {
-					"endtime": "17:00",
-					"periodid": 155474,
-					"starttime": "15:30"
-				},
-				"p3": {
-					"endtime": "23:10",
-					"periodid": 155475,
-					"starttime": "22:50"
-				}
-			},
-			"sundayDayperiodid": 51825,
-			"thursday": {
-				"dayperiodid": 51826,
-				"p1": {
-					"endtime": "08:10",
-					"periodid": 155476,
-					"starttime": "06:40"
-				},
-				"p2": {
-					"endtime": "19:00",
-					"periodid": 155477,
-					"starttime": "17:40"
-				},
-				"p3": {
-					"endtime": "23:00",
-					"periodid": 155478,
-					"starttime": "21:30"
-				}
-			},
-			"thursdayDayperiodid": 51826,
-			"tuesday": {
-				"dayperiodid": 51827,
-				"p1": {
-					"endtime": "08:10",
-					"periodid": 155479,
-					"starttime": "06:40"
-				},
-				"p2": {
-					"endtime": "19:00",
-					"periodid": 155480,
-					"starttime": "17:40"
-				},
-				"p3": {
-					"endtime": "23:00",
-					"periodid": 155481,
-					"starttime": "21:30"
-				}
-			},
-			"tuesdayDayperiodid": 51827,
-			"wednesday": {
-				"dayperiodid": 51828,
-				"p1": {
-					"endtime": "08:10",
-					"periodid": 155482,
-					"starttime": "07:20"
-				},
-				"p2": {
-					"endtime": "19:00",
-					"periodid": 155483,
-					"starttime": "18:00"
-				},
-				"p3": {
-					"endtime": "23:00",
-					"periodid": 155484,
-					"starttime": "21:30"
-				}
-			},
-			"wednesdayDayperiodid": 51828,
-			"zoneid": 7000
-		},
-		"receiverid": 3000,
-		"scenarioScenarioid": null,
-		"status": 1,
-		"storedtargettemperature": 24.00,
-		"targettemperature": 24.00,
-		"zoneid": 7000
-	},
-	"message": "succ.",
-	"status": 0,
-	"timestamp": 1572700843920
-}
-```
-
-In the above example boost is active. If boost is not active the `boostActivations` map is null and the `boostTime` variables contain boost time options like `1 hour (on until 14:20)`. 
-
-## Set Zone Target Temperature
-
-Sets the target temperature for a zone.
-
-### Request
-
-
-```
-POST /ember-back/zones/setTargetTemperature HTTP/1.1
-Authorization	long_token
-Accept	application/json
-```
-
-JSON
-
-```
-{
-	"zoneid": "0000",
-	"temperature": 24.5
-}
-```
-
-# Response
-
-```
-{
-	"data": null,
-	"message": "succ.",
-	"status": 0,
-	"timestamp": 1572386482517
-}
-```
-
-## Get Details of Zones
-
-To get the details of the zones post the `gatewayid` to `zones/polling`
-
-```
-POST /ember-back/zones/polling HTTP/1.1
-Authorization	long_token
-Accept	application/json
-```
-
-JSON
-
-```
-{
-	"gateWayId": "gwid1234"
-}
-```
-
-# Response
+The response is JSON 
 
 ```
 {
 	"data": [{
-		"areaid": null,
-		"boostActivations": {
-			"activatedon": "2019-10-29 22:01:36.357",
-			"comments": null,
-			"dispayFinishdatetime": "2019-10-30 00:00:00.000",
-			"finishdatetime": "2019-10-30 00:00:00.000",
-			"numberofhours": 1,
-			"targettemperature": 24.00,
-			"userid": 1000,
-			"wascancelled": false,
-			"zoneboostactivationid": 1330995,
-			"zoneid": 7000
-		},
-		"boostTime1": null,
-		"boostTime2": null,
-		"boostTime3": null,
-		"currenttemperature": 22.40,
-		"hardwareid": "0",
-		"homeName": null,
-		"isadvanceactive": false,
-		"isboostactive": false,
-		"ishotwater": false,
-		"isonline": true,
-		"mode": 0,
-		"name": "Heating",
-		"prefix": "This zone is off until 14:00",
-		"programmes": {
-			"friday": {
-				"dayperiodid": 51822,
-				"p1": {
-					"endtime": "08:10",
-					"periodid": 155464,
-					"starttime": "07:20"
-				},
-				"p2": {
-					"endtime": "19:00",
-					"periodid": 155465,
-					"starttime": "18:00"
-				},
-				"p3": {
-					"endtime": "23:00",
-					"periodid": 155466,
-					"starttime": "21:30"
-				}
+		"deviceDays": [{
+			"dayType": 0,
+			"deviceId": "productid135",
+			"id": "devicedayiddb17",
+			"p1": {
+				"createTime": "2021-01-29 14:01:54.000",
+				"delFlag": 0,
+				"endTime": 70,
+				"id": "programidb5c1",
+				"startTime": 70,
+				"updateTime": "2021-03-07 20:45:07.000"
 			},
-			"fridayDayperiodid": 51822,
-			"monday": {
-				"dayperiodid": 51823,
-				"p1": {
-					"endtime": "09:20",
-					"periodid": 155467,
-					"starttime": "08:30"
-				},
-				"p2": {
-					"endtime": "14:30",
-					"periodid": 155468,
-					"starttime": "14:00"
-				},
-				"p3": {
-					"endtime": "19:30",
-					"periodid": 155469,
-					"starttime": "19:00"
-				}
+			"p2": {
+				"createTime": "2021-01-29 14:01:54.000",
+				"delFlag": 0,
+				"endTime": 120,
+				"id": "programid2b84d",
+				"startTime": 120,
+				"updateTime": "2021-03-07 20:45:07.000"
 			},
-			"mondayDayperiodid": 51823,
-			"saturday": {
-				"dayperiodid": 51824,
-				"p1": {
-					"endtime": "09:20",
-					"periodid": 155470,
-					"starttime": "08:30"
-				},
-				"p2": {
-					"endtime": "14:30",
-					"periodid": 155471,
-					"starttime": "14:00"
-				},
-				"p3": {
-					"endtime": "19:30",
-					"periodid": 155472,
-					"starttime": "19:00"
-				}
-			},
-			"saturdayDayperiodid": 51824,
-			"sunday": {
-				"dayperiodid": 51825,
-				"p1": {
-					"endtime": "09:40",
-					"periodid": 155473,
-					"starttime": "08:40"
-				},
-				"p2": {
-					"endtime": "17:00",
-					"periodid": 155474,
-					"starttime": "15:30"
-				},
-				"p3": {
-					"endtime": "23:10",
-					"periodid": 155475,
-					"starttime": "22:50"
-				}
-			},
-			"sundayDayperiodid": 51825,
-			"thursday": {
-				"dayperiodid": 51826,
-				"p1": {
-					"endtime": "08:10",
-					"periodid": 155476,
-					"starttime": "06:40"
-				},
-				"p2": {
-					"endtime": "19:00",
-					"periodid": 155477,
-					"starttime": "17:40"
-				},
-				"p3": {
-					"endtime": "23:00",
-					"periodid": 155478,
-					"starttime": "21:30"
-				}
-			},
-			"thursdayDayperiodid": 51826,
-			"tuesday": {
-				"dayperiodid": 51827,
-				"p1": {
-					"endtime": "08:10",
-					"periodid": 155479,
-					"starttime": "06:40"
-				},
-				"p2": {
-					"endtime": "19:00",
-					"periodid": 155480,
-					"starttime": "17:40"
-				},
-				"p3": {
-					"endtime": "23:00",
-					"periodid": 155481,
-					"starttime": "21:30"
-				}
-			},
-			"tuesdayDayperiodid": 51827,
-			"wednesday": {
-				"dayperiodid": 51828,
-				"p1": {
-					"endtime": "08:10",
-					"periodid": 155482,
-					"starttime": "07:20"
-				},
-				"p2": {
-					"endtime": "19:00",
-					"periodid": 155483,
-					"starttime": "18:00"
-				},
-				"p3": {
-					"endtime": "23:00",
-					"periodid": 155484,
-					"starttime": "21:30"
-				}
-			},
-			"wednesdayDayperiodid": 51828,
-			"zoneid": 7000
-		},
-		"receiverid": 3000,
-		"scenarioScenarioid": null,
-		"status": 1,
-		"storedtargettemperature": 24.00,
-		"targettemperature": 24.00,
-		"zoneid": 7000
-	}, {
-		"areaid": null,
-		"boostActivations": {
-			"activatedon": "2019-10-31 21:52:57.419",
-			"comments": null,
-			"dispayFinishdatetime": "2019-10-31 22:52:57.419",
-			"finishdatetime": "2019-10-31 22:52:57.419",
-			"numberofhours": 1,
-			"targettemperature": 55.00,
-			"userid": 1000,
-			"wascancelled": false,
-			"zoneboostactivationid": 1339296,
-			"zoneid": 7100
-		},
-		"boostTime1": null,
-		"boostTime2": null,
-		"boostTime3": null,
-		"currenttemperature": 47.00,
-		"hardwareid": "1",
-		"homeName": null,
-		"isadvanceactive": false,
-		"isboostactive": false,
-		"ishotwater": true,
-		"isonline": true,
-		"mode": 0,
-		"name": "Hot Water",
-		"prefix": "This zone is off until 14:00",
-		"programmes": {
-			"friday": {
-				"dayperiodid": 51829,
-				"p1": {
-					"endtime": "07:50",
-					"periodid": 155485,
-					"starttime": "07:00"
-				},
-				"p2": {
-					"endtime": "18:30",
-					"periodid": 155486,
-					"starttime": "18:00"
-				},
-				"p3": {
-					"endtime": "19:00",
-					"periodid": 155487,
-					"starttime": "19:00"
-				}
-			},
-			"fridayDayperiodid": 51829,
-			"monday": {
-				"dayperiodid": 51830,
-				"p1": {
-					"endtime": "09:20",
-					"periodid": 155488,
-					"starttime": "08:30"
-				},
-				"p2": {
-					"endtime": "14:30",
-					"periodid": 155489,
-					"starttime": "14:00"
-				},
-				"p3": {
-					"endtime": "19:30",
-					"periodid": 155490,
-					"starttime": "19:00"
-				}
-			},
-			"mondayDayperiodid": 51830,
-			"saturday": {
-				"dayperiodid": 51831,
-				"p1": {
-					"endtime": "09:20",
-					"periodid": 155491,
-					"starttime": "08:30"
-				},
-				"p2": {
-					"endtime": "14:30",
-					"periodid": 155492,
-					"starttime": "14:00"
-				},
-				"p3": {
-					"endtime": "19:30",
-					"periodid": 155493,
-					"starttime": "19:00"
-				}
-			},
-			"saturdayDayperiodid": 51831,
-			"sunday": {
-				"dayperiodid": 51832,
-				"p1": {
-					"endtime": "09:20",
-					"periodid": 155494,
-					"starttime": "08:30"
-				},
-				"p2": {
-					"endtime": "14:30",
-					"periodid": 155495,
-					"starttime": "14:00"
-				},
-				"p3": {
-					"endtime": "19:30",
-					"periodid": 155496,
-					"starttime": "19:00"
-				}
-			},
-			"sundayDayperiodid": 51832,
-			"thursday": {
-				"dayperiodid": 51833,
-				"p1": {
-					"endtime": "07:50",
-					"periodid": 155497,
-					"starttime": "07:00"
-				},
-				"p2": {
-					"endtime": "18:30",
-					"periodid": 155498,
-					"starttime": "18:00"
-				},
-				"p3": {
-					"endtime": "19:00",
-					"periodid": 155499,
-					"starttime": "19:00"
-				}
-			},
-			"thursdayDayperiodid": 51833,
-			"tuesday": {
-				"dayperiodid": 51834,
-				"p1": {
-					"endtime": "07:50",
-					"periodid": 155500,
-					"starttime": "07:00"
-				},
-				"p2": {
-					"endtime": "18:30",
-					"periodid": 155501,
-					"starttime": "18:00"
-				},
-				"p3": {
-					"endtime": "19:00",
-					"periodid": 155502,
-					"starttime": "19:00"
-				}
-			},
-			"tuesdayDayperiodid": 51834,
-			"wednesday": {
-				"dayperiodid": 51835,
-				"p1": {
-					"endtime": "07:50",
-					"periodid": 155503,
-					"starttime": "07:00"
-				},
-				"p2": {
-					"endtime": "18:30",
-					"periodid": 155504,
-					"starttime": "18:00"
-				},
-				"p3": {
-					"endtime": "19:00",
-					"periodid": 155505,
-					"starttime": "19:00"
-				}
-			},
-			"wednesdayDayperiodid": 51835,
-			"zoneid": 7100
-		},
-		"receiverid": 3000,
-		"scenarioScenarioid": null,
-		"status": 1,
-		"storedtargettemperature": 55.00,
-		"targettemperature": 55.00,
-		"zoneid": 7100
-	}],
-	"message": "succ.",
-	"status": 0,
-	"timestamp": 1572700800195
-}
-```
-
-## Get Data for Zone
-
-To get the data for a single zone POST the `zoneid` to `zones/data`.
-
-### Request
-
-```
-POST /ember-back/zones/data HTTP/1.1
-Authorization	long_token
-Accept	application/json
-```
-
-JSON
-
-```
-{
-	"zoneid": "7000"
-}
-```
-
-# Response
-
-```
-{
-	"data": {
-		"areaid": null,
-		"boostActivations": {
-			"activatedon": "2019-10-29 22:01:36.357",
-			"comments": null,
-			"dispayFinishdatetime": "2019-10-30 00:00:00.000",
-			"finishdatetime": "2019-10-30 00:00:00.000",
-			"numberofhours": 1,
-			"targettemperature": 24.00,
-			"userid": 1000,
-			"wascancelled": false,
-			"zoneboostactivationid": 1330995,
-			"zoneid": 7000
-		},
-		"boostTime1": null,
-		"boostTime2": null,
-		"boostTime3": null,
-		"currenttemperature": 22.40,
-		"hardwareid": "0",
-		"homeName": "Home",
-		"isadvanceactive": false,
-		"isboostactive": false,
-		"ishotwater": false,
-		"isonline": true,
-		"mode": 0,
-		"name": "Heating",
-		"prefix": "This zone is off until 14:00",
-		"programmes": {
-			"friday": {
-				"dayperiodid": 51822,
-				"p1": {
-					"endtime": "08:10",
-					"periodid": 155464,
-					"starttime": "07:20"
-				},
-				"p2": {
-					"endtime": "19:00",
-					"periodid": 155465,
-					"starttime": "18:00"
-				},
-				"p3": {
-					"endtime": "23:00",
-					"periodid": 155466,
-					"starttime": "21:30"
-				}
-			},
-			"fridayDayperiodid": 51822,
-			"monday": {
-				"dayperiodid": 51823,
-				"p1": {
-					"endtime": "09:20",
-					"periodid": 155467,
-					"starttime": "08:30"
-				},
-				"p2": {
-					"endtime": "14:30",
-					"periodid": 155468,
-					"starttime": "14:00"
-				},
-				"p3": {
-					"endtime": "19:30",
-					"periodid": 155469,
-					"starttime": "19:00"
-				}
-			},
-			"mondayDayperiodid": 51823,
-			"saturday": {
-				"dayperiodid": 51824,
-				"p1": {
-					"endtime": "09:20",
-					"periodid": 155470,
-					"starttime": "08:30"
-				},
-				"p2": {
-					"endtime": "14:30",
-					"periodid": 155471,
-					"starttime": "14:00"
-				},
-				"p3": {
-					"endtime": "19:30",
-					"periodid": 155472,
-					"starttime": "19:00"
-				}
-			},
-			"saturdayDayperiodid": 51824,
-			"sunday": {
-				"dayperiodid": 51825,
-				"p1": {
-					"endtime": "09:40",
-					"periodid": 155473,
-					"starttime": "08:40"
-				},
-				"p2": {
-					"endtime": "17:00",
-					"periodid": 155474,
-					"starttime": "15:30"
-				},
-				"p3": {
-					"endtime": "23:10",
-					"periodid": 155475,
-					"starttime": "22:50"
-				}
-			},
-			"sundayDayperiodid": 51825,
-			"thursday": {
-				"dayperiodid": 51826,
-				"p1": {
-					"endtime": "08:10",
-					"periodid": 155476,
-					"starttime": "06:40"
-				},
-				"p2": {
-					"endtime": "19:00",
-					"periodid": 155477,
-					"starttime": "17:40"
-				},
-				"p3": {
-					"endtime": "23:00",
-					"periodid": 155478,
-					"starttime": "21:30"
-				}
-			},
-			"thursdayDayperiodid": 51826,
-			"tuesday": {
-				"dayperiodid": 51827,
-				"p1": {
-					"endtime": "08:10",
-					"periodid": 155479,
-					"starttime": "06:40"
-				},
-				"p2": {
-					"endtime": "19:00",
-					"periodid": 155480,
-					"starttime": "17:40"
-				},
-				"p3": {
-					"endtime": "23:00",
-					"periodid": 155481,
-					"starttime": "21:30"
-				}
-			},
-			"tuesdayDayperiodid": 51827,
-			"wednesday": {
-				"dayperiodid": 51828,
-				"p1": {
-					"endtime": "08:10",
-					"periodid": 155482,
-					"starttime": "07:20"
-				},
-				"p2": {
-					"endtime": "19:00",
-					"periodid": 155483,
-					"starttime": "18:00"
-				},
-				"p3": {
-					"endtime": "23:00",
-					"periodid": 155484,
-					"starttime": "21:30"
-				}
-			},
-			"wednesdayDayperiodid": 51828,
-			"zoneid": 7000
-		},
-		"receiverid": 3000,
-		"scenarioScenarioid": null,
-		"status": 1,
-		"storedtargettemperature": 24.00,
-		"targettemperature": 24.00,
-		"zoneid": 7000
-	},
-	"message": "succ.",
-	"status": 0,
-	"timestamp": 1572700832616
-}
-```
-
-## Update Zone Data / Programmes
-
-To update the zone run times / programmes. POST the following to `zones/updateData`
-
-### Request
-
-```
-POST /ember-back/zones/updateData HTTP/1.1
-Authorization	long_token
-Accept	application/json
-```
-
-JSON
-
-```
-{
-	"data": [{
-		"zoneid": "7000",
-		"programmes": {
-			"saturdayDayperiodid": 51831,
-			"sunday": {
-				"dayperiodid": 51832,
-				"period3id": 0,
-				"p3": {
-					"endtime": "19:30",
-					"type": 0,
-					"periodid": 155496,
-					"starttime": "19:00"
-				},
-				"p1": {
-					"endtime": "09:20",
-					"type": 0,
-					"periodid": 155494,
-					"starttime": "08:30"
-				},
-				"period1id": 0,
-				"period2id": 0,
-				"p2": {
-					"endtime": "14:30",
-					"type": 0,
-					"periodid": 155495,
-					"starttime": "14:00"
-				}
-			},
-			"sundayDayperiodid": 51832,
-			"mondayDayperiodid": 51830,
-			"saturday": {
-				"dayperiodid": 51831,
-				"period3id": 0,
-				"p3": {
-					"endtime": "19:30",
-					"type": 0,
-					"periodid": 155493,
-					"starttime": "18:50"
-				},
-				"p1": {
-					"endtime": "09:20",
-					"type": 0,
-					"periodid": 155491,
-					"starttime": "08:30"
-				},
-				"period1id": 0,
-				"period2id": 0,
-				"p2": {
-					"endtime": "14:30",
-					"type": 0,
-					"periodid": 155492,
-					"starttime": "14:00"
-				}
-			},
-			"fridayDayperiodid": 51829,
-			"thursday": {
-				"dayperiodid": 51833,
-				"period3id": 0,
-				"p3": {
-					"endtime": "19:00",
-					"type": 0,
-					"periodid": 155499,
-					"starttime": "19:00"
-				},
-				"p1": {
-					"endtime": "07:50",
-					"type": 0,
-					"periodid": 155497,
-					"starttime": "07:00"
-				},
-				"period1id": 0,
-				"period2id": 0,
-				"p2": {
-					"endtime": "18:30",
-					"type": 0,
-					"periodid": 155498,
-					"starttime": "18:00"
-				}
-			},
-			"friday": {
-				"dayperiodid": 51829,
-				"period3id": 0,
-				"p3": {
-					"endtime": "19:00",
-					"type": 0,
-					"periodid": 155487,
-					"starttime": "19:00"
-				},
-				"p1": {
-					"endtime": "07:50",
-					"type": 0,
-					"periodid": 155485,
-					"starttime": "07:00"
-				},
-				"period1id": 0,
-				"period2id": 0,
-				"p2": {
-					"endtime": "18:30",
-					"type": 0,
-					"periodid": 155486,
-					"starttime": "18:00"
-				}
-			},
-			"tuesdayDayperiodid": 51834,
-			"monday": {
-				"dayperiodid": 51830,
-				"period3id": 0,
-				"p3": {
-					"endtime": "19:30",
-					"type": 0,
-					"periodid": 155490,
-					"starttime": "19:00"
-				},
-				"p1": {
-					"endtime": "09:20",
-					"type": 0,
-					"periodid": 155488,
-					"starttime": "08:30"
-				},
-				"period1id": 0,
-				"period2id": 0,
-				"p2": {
-					"endtime": "14:30",
-					"type": 0,
-					"periodid": 155489,
-					"starttime": "14:00"
-				}
-			},
-			"tuesday": {
-				"dayperiodid": 51834,
-				"period3id": 0,
-				"p3": {
-					"endtime": "19:00",
-					"type": 0,
-					"periodid": 155502,
-					"starttime": "19:00"
-				},
-				"p1": {
-					"endtime": "07:50",
-					"type": 0,
-					"periodid": 155500,
-					"starttime": "07:00"
-				},
-				"period1id": 0,
-				"period2id": 0,
-				"p2": {
-					"endtime": "18:30",
-					"type": 0,
-					"periodid": 155501,
-					"starttime": "18:00"
-				}
-			},
-			"wednesdayDayperiodid": 51835,
-			"thursdayDayperiodid": 51833,
-			"zoneid": "7100",
-			"wednesday": {
-				"dayperiodid": 51835,
-				"period3id": 0,
-				"p3": {
-					"endtime": "19:00",
-					"type": 0,
-					"periodid": 155505,
-					"starttime": "19:00"
-				},
-				"p1": {
-					"endtime": "07:50",
-					"type": 0,
-					"periodid": 155503,
-					"starttime": "07:00"
-				},
-				"period1id": 0,
-				"period2id": 0,
-				"p2": {
-					"endtime": "18:30",
-					"type": 0,
-					"periodid": 155504,
-					"starttime": "18:00"
-				}
+			"p3": {
+				"createTime": "2021-01-29 14:01:54.000",
+				"delFlag": 0,
+				"endTime": 170,
+				"id": "programid273ea",
+				"startTime": 170,
+				"updateTime": "2021-03-07 20:45:07.000"
 			}
-		}
-	}]
-}
-```
-
-# Response
-
-```
-{
-	"data": null,
+		}, {
+			"dayType": 1,
+			"deviceId": "productid135",
+			"id": "devicedayid57efb",
+			"p1": {
+				"createTime": "2021-01-29 14:01:54.000",
+				"delFlag": 0,
+				"endTime": 80,
+				"id": "programida7c41",
+				"startTime": 80,
+				"updateTime": "2021-03-07 20:45:07.000"
+			},
+			"p2": {
+				"createTime": "2021-01-29 14:01:54.000",
+				"delFlag": 0,
+				"endTime": 120,
+				"id": "programid8ea2e",
+				"startTime": 120,
+				"updateTime": "2021-03-07 20:45:07.000"
+			},
+			"p3": {
+				"createTime": "2021-01-29 14:01:54.000",
+				"delFlag": 0,
+				"endTime": 213,
+				"id": "programid0b9a",
+				"startTime": 170,
+				"updateTime": "2021-03-07 20:45:07.000"
+			}
+		}, {
+			"dayType": 2,
+			"deviceId": "productid135",
+			"id": "devicedayidb8b59",
+			"p1": {
+				"createTime": "2021-01-29 14:01:54.000",
+				"delFlag": 0,
+				"endTime": 80,
+				"id": "programid9e9f0",
+				"startTime": 80,
+				"updateTime": "2021-03-07 20:45:07.000"
+			},
+			"p2": {
+				"createTime": "2021-01-29 14:01:54.000",
+				"delFlag": 0,
+				"endTime": 120,
+				"id": "programidb169c8",
+				"startTime": 120,
+				"updateTime": "2021-03-07 20:45:07.000"
+			},
+			"p3": {
+				"createTime": "2021-01-29 14:01:54.000",
+				"delFlag": 0,
+				"endTime": 213,
+				"id": "programided6f",
+				"startTime": 170,
+				"updateTime": "2021-03-07 20:45:07.000"
+			}
+		}, {
+			"dayType": 3,
+			"deviceId": "productid135",
+			"id": "devicedayidf99",
+			"p1": {
+				"createTime": "2021-01-29 14:01:54.000",
+				"delFlag": 0,
+				"endTime": 80,
+				"id": "programid76158",
+				"startTime": 80,
+				"updateTime": "2021-03-07 20:45:07.000"
+			},
+			"p2": {
+				"createTime": "2021-01-29 14:01:54.000",
+				"delFlag": 0,
+				"endTime": 120,
+				"id": "programidbfb",
+				"startTime": 120,
+				"updateTime": "2021-03-07 20:45:07.000"
+			},
+			"p3": {
+				"createTime": "2021-01-29 14:01:54.000",
+				"delFlag": 0,
+				"endTime": 213,
+				"id": "programid15319",
+				"startTime": 170,
+				"updateTime": "2021-03-07 20:45:07.000"
+			}
+		}, {
+			"dayType": 4,
+			"deviceId": "productid135",
+			"id": "devicedayid446b",
+			"p1": {
+				"createTime": "2021-01-29 14:01:54.000",
+				"delFlag": 0,
+				"endTime": 80,
+				"id": "programid4a789",
+				"startTime": 80,
+				"updateTime": "2021-03-07 20:45:07.000"
+			},
+			"p2": {
+				"createTime": "2021-01-29 14:01:54.000",
+				"delFlag": 0,
+				"endTime": 120,
+				"id": "programid468e2",
+				"startTime": 120,
+				"updateTime": "2021-03-07 20:45:07.000"
+			},
+			"p3": {
+				"createTime": "2021-01-29 14:01:54.000",
+				"delFlag": 0,
+				"endTime": 213,
+				"id": "programidaa4e2",
+				"startTime": 170,
+				"updateTime": "2021-03-07 20:45:07.000"
+			}
+		}, {
+			"dayType": 5,
+			"deviceId": "productid135",
+			"id": "devicedayid8341e",
+			"p1": {
+				"createTime": "2021-01-29 14:01:54.000",
+				"delFlag": 0,
+				"endTime": 80,
+				"id": "programid44f5c",
+				"startTime": 80,
+				"updateTime": "2021-03-07 20:45:07.000"
+			},
+			"p2": {
+				"createTime": "2021-01-29 14:01:54.000",
+				"delFlag": 0,
+				"endTime": 120,
+				"id": "programidde00",
+				"startTime": 120,
+				"updateTime": "2021-03-07 20:45:07.000"
+			},
+			"p3": {
+				"createTime": "2021-01-29 14:01:54.000",
+				"delFlag": 0,
+				"endTime": 213,
+				"id": "programid3754",
+				"startTime": 170,
+				"updateTime": "2021-03-07 20:45:07.000"
+			}
+		}, {
+			"dayType": 6,
+			"deviceId": "productid135",
+			"id": "devicedayid97c5e",
+			"p1": {
+				"createTime": "2021-01-29 14:01:54.000",
+				"delFlag": 0,
+				"endTime": 70,
+				"id": "programid840a5",
+				"startTime": 70,
+				"updateTime": "2021-03-07 20:45:07.000"
+			},
+			"p2": {
+				"createTime": "2021-01-29 14:01:54.000",
+				"delFlag": 0,
+				"endTime": 120,
+				"id": "programid7c333",
+				"startTime": 120,
+				"updateTime": "2021-03-07 20:45:07.000"
+			},
+			"p3": {
+				"createTime": "2021-01-29 14:01:54.000",
+				"delFlag": 0,
+				"endTime": 170,
+				"id": "programid911ee",
+				"startTime": 170,
+				"updateTime": "2021-03-07 20:45:07.000"
+			}
+		}],
+		"deviceType": 2,
+		"isonline": true,
+		"mac": "acacacac",
+		"name": "home",
+		"pointDataList": [{
+			"pointIndex": 11,
+			"value": "0"
+		}, {
+			"pointIndex": 3,
+			"value": "12"
+		}, {
+			"pointIndex": 4,
+			"value": "0"
+		}, {
+			"pointIndex": 13,
+			"value": "1"
+		}, {
+			"pointIndex": 10,
+			"value": "1"
+		}, {
+			"pointIndex": 14,
+			"value": "205"
+		}, {
+			"pointIndex": 8,
+			"value": "0"
+		}, {
+			"pointIndex": 7,
+			"value": "0"
+		}, {
+			"pointIndex": 5,
+			"value": "192"
+		}, {
+			"pointIndex": 9,
+			"value": "0"
+		}, {
+			"pointIndex": 6,
+			"value": "200"
+		}],
+		"productId": "productid135",
+		"systemType": "EMBER-PS",
+		"uid": "uid011",
+		"zoneid": "zoneid9b"
+	}],
 	"message": "succ.",
 	"status": 0,
-	"timestamp": 1572701190148
+	"timestamp": 1615150236609
 }
 ```
 
-## Set Zone Mode / Run Selection
+### Notes
 
-Modes control when your heating controls will be turn on. The supported modes are
+This request is one of the brand new requests from the new API. It includes information about a zone including the 
 
-* Off - 3 - Always off
-* On - 2 - Always on
-* All Day - 1 - Starts at start time of period 1 and ends at the end time of period 3
-* Auto - 0 - Based on the times you have configured.
+  * Timer schedule. 
+  * Point data information
 
-This is equalivent to the "Run Selection" setting in the app.
-
-### Request
-
-```
-POST /ember-back/zones/setModel HTTP/1.1
-Authorization	long_token
-Accept	application/json
-```
-
-JSON
-
-```
-{
-	"model": "0",
-	"zoneid": "7000"
-}
-```
-
-# Response
-
-```
-{
-	"data": null,
-	"message": "succ.",
-	"status": 0,
-	"timestamp": 1572701190148
-}
-```
-
-
-## Advance the Zone
-
-Advancing the zone moves it to the next configured run selection. To advance a zone pass the `zoneId` to `zones/adv`
-
-### Request
-
-```
-POST /ember-back/zones/adv HTTP/1.1
-Authorization	long_token
-Accept	application/json
-```
-
-The JSON to send is:
-
-```
-{
-	"zoneid": "7000"
-}
-```
-# Response
-
-```
-{
-	"data": null,
-	"message": "succ.",
-	"status": 0,
-	"timestamp": 1572386496332
-}
-```
-
-## Cancel Advance
-
-To cancel advance you pass the `zoneId` that you would like to deactivate to `zones/cancelAdv`.
-
-### Request
-
-```
-POST /ember-back/zones/cancelBoost HTTP/1.1
-Authorization	long_token
-Accept	application/json
-```
-
-The JSON to send is:
-
-```
-{
-	"zoneid": "7000"
-}
-```
-# Response
-
-```
-{
-	"data": null,
-	"message": "succ.",
-	"status": 0,
-	"timestamp": 1572386496332
-}
-```
-
-
-## Other API Calls
-
-Some other calls that I have seen but not investigated include:
-
-### Weather
-
-```
-GET /ember-back/homes/weathInfo HTTP/1.1
-Authorization	long_token
-Accept	application/json
-```
-
-JSON
-
-```
-{
-	"gateWayId": "gwid1234"
-}
-```
-
-Response
-
-{
-	"data": null,
-	"message": "succ.",
-	"status": 0,
-	"timestamp": 1572386471743
-}
-
-
-### Frost Protection
-
-```
-GET /ember-back/homes/changeFrostProtection HTTP/1.1
-Authorization	long_token
-Accept	application/json
-```
-
-JSON
-
-```
-{
-	"button": "off",
-	"gateWayId": "gwid1234"
-}
-```
-To above will turn off frost protection. To turn on frost protection set `button` to `on`.
-
-Response
-
-{
-	"data": null,
-	"message": "succ.",
-	"status": 0,
-	"timestamp": 1572386471743
-}
-
+The point data here contains the index and value type. The value type depends on the index. A full list of the index and value information will be provided later in the document. 
