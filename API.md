@@ -1465,11 +1465,12 @@ From observation there are 3 types of data used in the zone details point data.
  * Time Data (based on epoch)
 
 
-| ID    | Data Type              |
-| ----- | ---------------------- |
-| 1     | Binary Toggle (on/off) |
-| 4     | Epoch Timestamp        |
-| 5     | Temperature Data       |
+| ID    | Length (bytes) | Data Type                         |
+| ----- | ---------------|---------------------------------- |
+| 1     | 1              | Binary Toggle (on/off) or integer |
+| 2     | 2              | Temperature                       |
+| 4     | 2              | Temperature Data                  |
+| 5     | 4              | Epoch Timestamp                   |
 
 ### Point Index
 
@@ -1478,16 +1479,20 @@ The point index is an integer that refers to the element is being controlled. Th
 | Index  | Element           | Type  |
 | ------ | ----------------- | ----- |
 | 3      | TODO              | 0     |
-| 4      | TODO              | 0     |
-| 5      | Current Temp      | 4     |
-| 6      | TODO              | 0     |
+| 4      | Advance On / Off  | 1     |
+| 5      | Current Temp      | 2     |
+| 6      | Target Temp       | 4     |
 | 7      | TODO              | 0     |
 | 8      | Boost On / Off    | 1     |
-| 9      | Boost Off Time    | 4     |
-| 10     | TODO              | 5     |
+| 9      | Boost ON(?) Time  | 5     |
+| 10     | TODO              | 0     |
 | 11     | TODO              | 0     |
 | 13     | TODO              | 0     |
 | 14     | Boost Target Temp | 4     |
+| 15     | Boost Target Temp | 5     |
+| 16     | Boost Target Temp | 5     |
+| 17     | Boost Target Temp | 5     |
+| 18     | Boost Target Temp | 5     |
 
 ### MQTT Binary Point Data
 
