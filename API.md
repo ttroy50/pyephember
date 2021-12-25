@@ -1482,7 +1482,7 @@ The point index is an integer that refers to the element is being controlled. Th
 | 4      | Advance On / Off      | 1     |
 | 5      | Current Temp          | 2     |
 | 6      | Target Temp           | 4     |
-| 7      | TODO                  | 0     |
+| 7      | Mode                  | 1     |
 | 8      | Boost hours (0 to 3)  | 1     |
 | 9      | Boost ON(?) Time      | 5     |
 | 10     | TODO                  | 0     |
@@ -1493,6 +1493,8 @@ The point index is an integer that refers to the element is being controlled. Th
 | 16     | TODO                  | 5     |
 | 17     | TODO                  | 5     |
 | 18     | TODO                  | 5     |
+
+Mode: 0=auto, 1=all day, 2=on, 3=off
 
 ### MQTT Binary Point Data
 
