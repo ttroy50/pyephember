@@ -1489,10 +1489,10 @@ The point index is an integer that refers to the element is being controlled. Th
 | 11     | TODO                  | 0     |
 | 13     | TODO                  | 0     |
 | 14     | Boost Target Temp     | 4     |
-| 15     | Boost Target Temp     | 5     |
-| 16     | Boost Target Temp     | 5     |
-| 17     | Boost Target Temp     | 5     |
-| 18     | Boost Target Temp     | 5     |
+| 15     | TODO                  | 5     |
+| 16     | TODO                  | 5     |
+| 17     | TODO                  | 5     |
+| 18     | TODO                  | 5     |
 
 ### MQTT Binary Point Data
 
