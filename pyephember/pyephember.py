@@ -578,14 +578,14 @@ class EphEmber:
 
     def is_boost_active(self, name):
         """
-        Check if a zone is active
+        Check if boost is active for a zone
         """
         zone = self.get_zone(name)
         return zone_is_boost_active(zone)
 
     def boost_hours(self, name):
         """
-        Check if a zone is active
+        Get the boost duration for a zone, in hours
         """
         zone = self.get_zone(name)
         return zone_boost_hours(zone)
