@@ -1484,15 +1484,11 @@ The point index is an integer that refers to the element is being controlled. Th
 | 6      | Target Temp              | 4     |
 | 7      | Mode                     | 1     |
 | 8      | Boost hours (0 to 3)     | 1     |
-| 9      | Boost/Holiday ON(?) Time | 5     |
+| 9      | Boost Time               | 5     |
 | 10     | Holiday OFF time         | 5     |
 | 11     | TODO                     | 0     |
 | 13     | TODO                     | 0     |
 | 14     | Boost Target Temp        | 4     |
-| 15     | TODO                     | 5     |
-| 16     | TODO                     | 5     |
-| 17     | TODO                     | 5     |
-| 18     | TODO                     | 5     |
 
 Mode: 0=auto, 1=all day, 2=on, 3=off
 
