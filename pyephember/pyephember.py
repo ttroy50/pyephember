@@ -648,8 +648,11 @@ class EphEmber:
         self._login_data = None
 
     # Ctor
-    def __init__(self, username, password):
+    def __init__(self, username, password, cache_home=False):
         """Performs login and save session cookie."""
+
+        if cache_home:
+            raise RuntimeError("cache_home not implemented")
 
         self._login_data = None
         self._user_id = None
