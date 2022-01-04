@@ -1,6 +1,7 @@
 """
 PyEphEmber interface implementation for https://ember.ephcontrols.com/
 """
+# pylint: disable=consider-using-f-string
 
 import base64
 import datetime
@@ -46,11 +47,13 @@ def zone_is_active(zone):
     # not sure how reliable the next tests are
     return zone_boost_hours(zone) > 0 or zone_advance_active(zone)
 
+
 def zone_advance_active(zone):
     """
     Check if zone has advance active
     """
     return zone_pointdata_value(zone, 'ADVANCE_ACTIVE') != 0
+
 
 def zone_is_scheduled_on(zone):
     """
@@ -69,7 +72,6 @@ def zone_is_scheduled_on(zone):
         For example, x = 173 is converted to 17:30
         """
         return datetime.time(int(str(stime)[:-1]), 10*int(str(stime)[-1:]))
-
 
     tstamp = time.gmtime(zone['timestamp']/1000)
     ts_time = datetime.time(tstamp.tm_hour, tstamp.tm_min)
@@ -93,11 +95,13 @@ def zone_is_scheduled_on(zone):
 
     return False
 
+
 def zone_name(zone):
     """
     Get zone name
     """
     return zone["name"]
+
 
 def zone_is_boost_active(zone):
     """
@@ -105,11 +109,13 @@ def zone_is_boost_active(zone):
     """
     return zone_boost_hours(zone) > 0
 
+
 def zone_boost_hours(zone):
     """
     Return zone boost hours
     """
     return zone_pointdata_value(zone, 'BOOST_HOURS')
+
 
 def zone_temperature(zone, label):
     """
@@ -117,17 +123,20 @@ def zone_temperature(zone, label):
     """
     return zone_pointdata_value(zone, label)/10
 
+
 def zone_target_temperature(zone):
     """
     Get target temperature for this zone
     """
     return zone_temperature(zone, 'TARGET_TEMP')
 
+
 def zone_current_temperature(zone):
     """
     Get current temperature for this zone
     """
     return zone_temperature(zone, 'CURRENT_TEMP')
+
 
 def zone_pointdata_value(zone, index):
     """
@@ -144,6 +153,7 @@ def zone_pointdata_value(zone, index):
             return int(datum['value'])
 
     return None
+
 
 def zone_mode(zone):
     """
@@ -168,7 +178,7 @@ class EphMessenger:
         msg = json.dumps(
             {
                 "common": {
-                    "serial":7870,
+                    "serial": 7870,
                     "productId": product_id,
                     "uid": uid,
                     "timestamp": str(int(1000*time.time()))
@@ -262,6 +272,7 @@ class EphMessenger:
         self.client_id = None
 
         self.parent = parent
+
 
 class EphEmber:
     """
@@ -409,7 +420,6 @@ class EphEmber:
             raise RuntimeError("Cannot get gateway id from list of homes.")
         return self._homes[0]['gatewayid']
 
-
     def _set_zone_target_temperature(self, zone, target_temperature):
         return self.messenger.zone_command(
             zone,
@@ -418,7 +428,7 @@ class EphEmber:
 
     def _set_zone_boost(self, zone, boost_temperature, num_hours):
         cmd = [0, PointIndex.BOOST_HOURS.value, 1, num_hours]
-        if boost_temperature != None:
+        if boost_temperature is not None:
             temp_cmd = [0, PointIndex.BOOST_TEMP.value,
                         4, 0, int(10 * boost_temperature)]
             cmd = cmd + temp_cmd
