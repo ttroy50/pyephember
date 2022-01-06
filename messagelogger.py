@@ -66,43 +66,16 @@ def process_point_data(pstr):
     return parsed
 
 
-##################################################
-# start of execution
-
-parser = argparse.ArgumentParser(
-    prog='ember-watch',
-    description='Watch EPH Ember MQTT "upload/pointdata" messages'
-)
-parser.add_argument(
-    "--email", type=str, required=True, help="Email Address for your account"
-)
-parser.add_argument(
-    '--password', type=str, default="", help="Password for your account"
-)
-parser.add_argument(
-    '--show-log', action='store_true', help="Show MQTT client log"
-)
-parser.add_argument(
-    '--show-raw-messages', action='store_true', help="Show undecoded messages"
-)
-args = parser.parse_args()
-
-password = args.password
-if not password:
-    password = getpass.getpass()
-
 # pylint: disable=unused-argument
 
-if args.show_log:
-    def on_log(client, userdata, level, buf):
-        """
-        Simple callback for logging
-        """
+def on_log(client, userdata, level, buf):
+    """
+    Simple callback for logging
+    """
+    if args.show_log:
         ts_print("log: ({})".format(",".join(
             [str(x) for x in (userdata, level, buf)]
         )))
-else:
-    on_log = None  # pylint: disable=invalid-name
 
 
 def on_connect(client, userdata, flags, result_code):
@@ -122,14 +95,6 @@ def on_subscribe(client, userdata, mid, granted_qos):
     )))
 
 
-t = EphEmber(args.email, password)
-POINTDATA_TOPIC_UPLOAD = "/".join([
-    t.get_home_details()['homes']['productId'],
-    t.get_home_details()['homes']['uid'],
-    "upload/pointdata"
-])
-
-
 def on_message(client, userdata, message):
     """
     Decode and print message pointData
@@ -141,6 +106,39 @@ def on_message(client, userdata, message):
     if 'data' in j and 'pointData' in j['data']:
         ts_print('Decoded message pointData:',
                  process_point_data(j['data']['pointData']))
+
+
+parser = argparse.ArgumentParser(
+    prog='ember-watch',
+    description='Watch EPH Ember MQTT "upload/pointdata" messages'
+)
+parser.add_argument(
+    "--email", type=str, required=True, help="Email Address for your account"
+)
+parser.add_argument(
+    '--password', type=str, default="", help="Password for your account"
+)
+parser.add_argument(
+    '--show-log', action='store_true', help="Show MQTT client log"
+)
+parser.add_argument(
+    '--show-raw-messages', action='store_true', help="Show undecoded messages"
+)
+args = parser.parse_args()
+
+##################################################
+# start
+
+password = args.password
+if not password:
+    password = getpass.getpass()
+
+t = EphEmber(args.email, password)
+POINTDATA_TOPIC_UPLOAD = "/".join([
+    t.get_home_details()['homes']['productId'],
+    t.get_home_details()['homes']['uid'],
+    "upload/pointdata"
+])
 
 
 st = t.messenger.start(
