@@ -32,6 +32,7 @@ class PointIndex(Enum):
     CURRENT_TEMP = 5
     TARGET_TEMP = 6
     MODE = 7
+    BOILER_STATE = 10
     BOOST_HOURS = 8
     BOOST_TEMP = 14
 
@@ -53,6 +54,15 @@ def zone_advance_active(zone):
     Check if zone has advance active
     """
     return zone_pointdata_value(zone, 'ADVANCE_ACTIVE') != 0
+
+
+def boiler_state(zone):
+    """
+    Return the boiler state for a zone, as given by the API
+    Probable interpretation:
+    0 => FIXME, 1 => flame off, 2 => flame on
+    """
+    return zone_pointdata_value(zone, 'BOILER_STATE')
 
 
 def zone_is_scheduled_on(zone):
@@ -571,6 +581,13 @@ class EphEmber:
         """
         zone = self.get_zone(name)
         return zone_is_active(zone)
+
+    def is_zone_boiler_on(self, name):
+        """
+        Check if the named zone's boiler is on and burning fuel (experimental)
+        """
+        zone = self.get_zone(name)
+        return boiler_state(zone) == 2
 
     def get_zone_temperature(self, name):
         """
