@@ -215,7 +215,8 @@ class EphMessenger:
 
     # Public interface
 
-    def start(self, on_message=None, on_log=None, on_connect=None):
+    def start(self, on_message=None, on_log=None,
+              on_connect=None, on_disconnect=None, on_subscribe=None):
         """
         Start MQTT client
         """
@@ -232,12 +233,11 @@ class EphMessenger:
         user_name = "app/{}".format(token)
         mclient.username_pw_set(user_name, token)
 
-        if on_message:
-            mclient.on_message = on_message
-        if on_log:
-            mclient.on_log = on_log
-        if on_connect:
-            mclient.on_connect = on_connect
+        mclient.on_message = on_message
+        mclient.on_log = on_log
+        mclient.on_connect = on_connect
+        mclient.on_disconnect = on_disconnect
+        mclient.on_subscribe = on_subscribe
 
         mclient.connect(self.api_url, self.api_port)
 
