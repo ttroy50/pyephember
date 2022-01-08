@@ -35,6 +35,10 @@ class PointIndex(Enum):
     BOILER_STATE = 10
     BOOST_HOURS = 8
     BOOST_TEMP = 14
+    CTR_15_ABAB = 15
+    XXX_16_0000 = 16
+    CTR_17_ABAB = 17
+    CTR_18_0AB7 = 18
 
 
 def zone_is_active(zone):
@@ -215,8 +219,7 @@ class EphMessenger:
 
     # Public interface
 
-    def start(self, on_message=None, on_log=None,
-              on_connect=None, on_disconnect=None, on_subscribe=None):
+    def start(self, callbacks=None):
         """
         Start MQTT client
         """
@@ -233,11 +236,9 @@ class EphMessenger:
         user_name = "app/{}".format(token)
         mclient.username_pw_set(user_name, token)
 
-        mclient.on_message = on_message
-        mclient.on_log = on_log
-        mclient.on_connect = on_connect
-        mclient.on_disconnect = on_disconnect
-        mclient.on_subscribe = on_subscribe
+        if callbacks is not None:
+            for key in callbacks.keys():
+                setattr(mclient, key, callbacks[key])
 
         mclient.connect(self.api_url, self.api_port)
 
@@ -260,7 +261,7 @@ class EphMessenger:
 
         For example, to set target temperature to 19:
 
-          zone_command([0, 6, 4, 0, 190])
+          zone_command("Zone_name", [0, 6, 4, 0, 190])
 
         """
         def ints_to_b64_cmd(int_array):
@@ -269,6 +270,7 @@ class EphMessenger:
             return its base64 string in ascii
             """
             return base64.b64encode(bytes(int_array)).decode("ascii")
+
         return self._zone_command_b64(
             zone, ints_to_b64_cmd(ints_cmd), stop_mqtt, timeout
         )
@@ -291,7 +293,7 @@ class EphEmber:
                    t.get_zone_temperature('myzone') # Get temperature
     """
 
-    # pylint: disable=too-many-instance-attributes
+    # pylint: disable=too-many-public-methods
 
     def _http(self, endpoint, *, method=requests.post, headers=None,
               send_token=False, data=None, timeout=10):
@@ -370,7 +372,10 @@ class EphEmber:
 
         response = self._http(
             "appLogin/login",
-            data={'userName': self._username, 'password': self._password}
+            data={
+                'userName': self._user['username'],
+                'password': self._user['password']
+            }
         )
 
         self._login_data = response.json()
@@ -412,15 +417,15 @@ class EphEmber:
         """
         Get user ID
         """
-        if not force and self._user_id:
-            return self._user_id
+        if not force and self._user['user_id']:
+            return self._user['user_id']
 
         user_details = self._get_user_details()
         data = user_details.get('data', {})
         if 'id' not in data:
             raise RuntimeError("Cannot get user ID")
-        self._user_id = str(data['id'])
-        return self._user_id
+        self._user['user_id'] = str(data['id'])
+        return self._user['user_id']
 
     def _get_first_gateway_id(self):
         """
@@ -434,6 +439,16 @@ class EphEmber:
         return self.messenger.zone_command(
             zone,
             [0, PointIndex.TARGET_TEMP.value, 4, 0, int(10*target_temperature)]
+        )
+
+    def _set_zone_advance(self, zone, advance=True):
+        if advance:
+            advance = 1
+        else:
+            advance = 0
+        return self.messenger.zone_command(
+            zone,
+            [0, PointIndex.ADVANCE_ACTIVE.value, 1, advance]
         )
 
     def _set_zone_boost(self, zone, boost_temperature, num_hours):
@@ -633,6 +648,15 @@ class EphEmber:
             zone, target_temperature
         )
 
+    def set_zone_advance(self, name, advance_state=True):
+        """
+        Set the advance state for a named zone
+        """
+        zone = self.get_zone(name)
+        return self._set_zone_advance(
+            zone, advance_state
+        )
+
     def activate_zone_boost(self, name, boost_temperature=None, num_hours=1):
         """
         Turn on boost for a named zone
@@ -682,9 +706,11 @@ class EphEmber:
             raise RuntimeError("cache_home not implemented")
 
         self._login_data = None
-        self._user_id = None
-        self._username = username
-        self._password = password
+        self._user = {
+            'user_id': None,
+            'username': username,
+            'password': password
+        }
 
         # This is the list of homes / gateways associated with the account.
         self._homes = None

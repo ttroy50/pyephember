@@ -6,23 +6,23 @@ import json
 import base64
 import argparse
 import getpass
-import datetime
+import time
 
-from pyephember.pyephember import EphEmber
+from pyephember.pyephember import EphEmber, PointIndex
 
 
 def ts_print(*stuff):
     """
     print with timestamp
     """
-    return print(datetime.datetime.now().strftime("%d %b %Y %H:%M:%S"), *stuff)
+    return print(time.strftime("%d %b %Y %T", time.gmtime()), *stuff)
 
 
 def process_point_data(pstr):
     """
     Parse base64-encoded pointData into a dictionary
     Keys are the indices
-    Values are (datatype, integer_value)
+    Values are (datatype, dotted_bytes, integer_value)
     where datatype is 1, 2, 4, 5 (see API.md)
     """
     lengths = {1: 1, 2: 2, 4: 2, 5: 4}
@@ -58,8 +58,17 @@ def process_point_data(pstr):
             continue
         if mode == "value":
             value.append(number)
+            try:
+                index_lookup = PointIndex(index).name
+            except ValueError:
+                index_lookup = 'UNKNOWN'
             if len(value) == lengths[datatype]:
-                parsed[index] = (datatype, bytes_to_int(value))
+                parsed[index] = (
+                    index_lookup,
+                    datatype,
+                    ".".join([str(x) for x in value]),
+                    bytes_to_int(value)
+                )
                 value = []
                 mode = "wait"
             continue
@@ -104,7 +113,7 @@ def on_message(client, userdata, message):
         ts_print("raw message:", msg)
     j = json.loads(msg)
     if 'data' in j and 'pointData' in j['data']:
-        ts_print('Decoded message pointData:',
+        ts_print('pointData:',
                  process_point_data(j['data']['pointData']))
 
 
@@ -142,8 +151,12 @@ POINTDATA_TOPIC_UPLOAD = "/".join([
 
 
 st = t.messenger.start(
-    on_connect=on_connect,
-    on_log=on_log, on_message=on_message, on_subscribe=on_subscribe
+    callbacks={
+        'on_connect': on_connect,
+        'on_log': on_log,
+        'on_message': on_message,
+        'on_subscribe': on_subscribe
+    }
 )
 
 while True:
