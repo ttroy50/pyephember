@@ -32,8 +32,9 @@ class PointIndex(Enum):
     CURRENT_TEMP = 5
     TARGET_TEMP = 6
     MODE = 7
-    BOILER_STATE = 10
     BOOST_HOURS = 8
+    BOOST_TIME = 9
+    BOILER_STATE = 10
     BOOST_TEMP = 14
     CTR_15_ABAB = 15
     XXX_16_0000 = 16
@@ -204,7 +205,9 @@ class EphMessenger:
             }
         )
 
+        started_locally = False
         if not self.client or not self.client.is_connected():
+            started_locally = True
             self.start()
 
         pub = self.client.publish(
@@ -212,14 +215,14 @@ class EphMessenger:
         )
         pub.wait_for_publish(timeout=timeout)
 
-        if stop_mqtt:
+        if started_locally and stop_mqtt:
             self.stop()
 
         return pub.is_published()
 
     # Public interface
 
-    def start(self, callbacks=None):
+    def start(self, callbacks=None, loop_start=False):
         """
         Start MQTT client
         """
@@ -241,6 +244,9 @@ class EphMessenger:
                 setattr(mclient, key, callbacks[key])
 
         mclient.connect(self.api_url, self.api_port)
+
+        if loop_start:
+            mclient.loop_start()
 
         return mclient
 
@@ -451,12 +457,29 @@ class EphEmber:
             [0, PointIndex.ADVANCE_ACTIVE.value, 1, advance]
         )
 
-    def _set_zone_boost(self, zone, boost_temperature, num_hours):
+    def _set_zone_boost(self, zone, boost_temperature, num_hours, timestamp=0):
+        """
+        Internal method to set zone boost
+
+        num_hours should be 0, 1, 2 or 3
+
+        If boost_temperature is not None, send that
+
+        If timestamp is 0 (or omitted), use current timestamp
+
+        If timestamp is None, do not send timestamp at all.
+        (maybe results in permanent boost?)
+        """
         cmd = [0, PointIndex.BOOST_HOURS.value, 1, num_hours]
         if boost_temperature is not None:
             temp_cmd = [0, PointIndex.BOOST_TEMP.value,
                         4, 0, int(10 * boost_temperature)]
             cmd = cmd + temp_cmd
+        if timestamp is not None:
+            if timestamp == 0:
+                timestamp = int(datetime.datetime.now().timestamp())
+            cmd = cmd + [0, PointIndex.BOOST_TIME.value, 5]
+            cmd = cmd + [int(b) for b in timestamp.to_bytes(4, 'big')]
         return self.messenger.zone_command(zone, cmd)
 
     def _set_zone_mode(self, zone, mode_num):
@@ -657,12 +680,22 @@ class EphEmber:
             zone, advance_state
         )
 
-    def activate_zone_boost(self, name, boost_temperature=None, num_hours=1):
+    def activate_zone_boost(self, name, boost_temperature=None,
+                            num_hours=1, timestamp=0):
         """
         Turn on boost for a named zone
+
+        If boost_temperature is not None, send that
+
+        If timestamp is 0 (or omitted), use current timestamp
+
+        If timestamp is None, do not send timestamp at all.
+        (maybe results in permanent boost?)
+
         """
         return self._set_zone_boost(
-            self.get_zone(name), boost_temperature, num_hours
+            self.get_zone(name), boost_temperature,
+            num_hours, timestamp=timestamp
         )
 
     def deactivate_zone_boost(self, zone):
