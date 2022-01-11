@@ -447,6 +447,12 @@ class EphEmber:
             [0, PointIndex.TARGET_TEMP.value, 4, 0, int(10*target_temperature)]
         )
 
+    def _set_zone_boost_temperature(self, zone, target_temperature):
+        return self.messenger.zone_command(
+            zone,
+            [0, PointIndex.BOOST_TEMP.value, 4, 0, int(10*target_temperature)]
+        )
+
     def _set_zone_advance(self, zone, advance=True):
         if advance:
             advance = 1
@@ -668,6 +674,15 @@ class EphEmber:
         """
         zone = self.get_zone(name)
         return self._set_zone_target_temperature(
+            zone, target_temperature
+        )
+
+    def set_zone_boost_temperature(self, name, target_temperature):
+        """
+        Set the boost target temperature for a named zone
+        """
+        zone = self.get_zone(name)
+        return self._set_zone_boost_temperature(
             zone, target_temperature
         )
 
