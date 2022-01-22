@@ -50,6 +50,55 @@ class PointIndex(Enum):
 ZoneCommand = collections.namedtuple('ZoneCommand', ['name', 'value'])
 
 
+def zone_command_to_ints(command):
+    """
+    Convert a ZoneCommand to an array of integers to send
+    """
+    type_data = {
+        'SMALL_INT': {'id': 1, 'byte_len': 1},
+        'TEMP_RO': {'id': 2, 'byte_len': 2},
+        'TEMP_RW': {'id': 4, 'byte_len': 2},
+        'TIMESTAMP': {'id': 5, 'byte_len': 4}
+    }
+    writable_command_types = {
+        'ADVANCE_ACTIVE': 'SMALL_INT',
+        'TARGET_TEMP': 'TEMP_RW',
+        'MODE': 'SMALL_INT',
+        'BOOST_HOURS': 'SMALL_INT',
+        'BOOST_TIME': 'TIMESTAMP',
+        'BOOST_TEMP': 'TEMP_RW'
+    }
+    if command.name not in writable_command_types:
+        raise ValueError(
+            "Cannot write to read-only value "
+            "{}".format(command.name)
+        )
+
+    command_type = writable_command_types[command.name]
+    command_index = PointIndex[command.name].value
+
+    # command header: [0, index, type_id]
+    int_array = [0, command_index, type_data[command_type]['id']]
+
+    # now encode and append the value
+    send_value = command.value
+    if command_type == 'TEMP_RW':
+        # The thermostat uses tenths of a degree;
+        # send_value is given in degrees, so we convert.
+        send_value = int(10*send_value)
+    elif command_type == 'TIMESTAMP':
+        # send_value can be either an int representing a Unix timestamp,
+        # or a datetime. Convert if a datetime.
+        if isinstance(command.value, datetime.datetime):
+            send_value = int(command.value.timestamp())
+
+    for byte_value in send_value.to_bytes(
+            type_data[command_type]['byte_len'], 'big'):
+        int_array.append(int(byte_value))
+
+    return int_array
+
+
 def zone_is_active(zone):
     """
     Check if the zone is on.
@@ -242,53 +291,6 @@ class EphMessenger:
 
         return pub.is_published()
 
-    def _zone_command_to_ints(self, command):
-        """
-        Convert a ZoneCommand to an array of integers to send
-        """
-        TYPES = {
-            'SMALL_INT': {'id': 1, 'byte_len': 1},
-            'TEMP_RO': {'id': 2, 'byte_len': 2},
-            'TEMP_RW': {'id': 4, 'byte_len': 2},
-            'TIMESTAMP': {'id': 5, 'byte_len': 4}
-        }
-        WRITABLE_COMMAND_TYPES = {
-            'ADVANCE_ACTIVE': 'SMALL_INT',
-            'TARGET_TEMP': 'TEMP_RW',
-            'MODE': 'SMALL_INT',
-            'BOOST_HOURS': 'SMALL_INT',
-            'BOOST_TIME': 'TIMESTAMP',
-            'BOOST_TEMP': 'TEMP_RW'
-        }
-        if command.name not in WRITABLE_COMMAND_TYPES:
-            raise ValueError(
-                "Cannot write to read-only value "
-                "{}".format(command.name)
-            )
-
-        command_type = WRITABLE_COMMAND_TYPES[command.name]
-        command_index = PointIndex[command.name].value
-
-        # command header: [0, index, type_id]
-        int_array = [0, command_index, TYPES[command_type]['id']]
-
-        # now encode and append the value
-        send_value = command.value
-        if command_type == 'TEMP_RW':
-            # The thermostat uses tenths of a degree;
-            # send_value is given in degrees, so we convert.
-            send_value = int(10*send_value)
-        elif command_type == 'TIMESTAMP':
-            # send_value can be either an int representing a Unix timestamp,
-            # or a datetime. Convert if a datetime.
-            if isinstance(command.value, datetime.datetime):
-                send_value = int(command.value.timestamp())
-
-        for b in send_value.to_bytes(TYPES[command_type]['byte_len'], 'big'):
-            int_array.append(int(b))
-
-        return int_array
-
     # Public interface
 
     def start(self, callbacks=None, loop_start=False):
@@ -355,7 +357,7 @@ class EphMessenger:
 
         ints_cmd = [
             x for cmd in commands
-            for x in self._zone_command_to_ints(cmd)
+            for x in zone_command_to_ints(cmd)
         ]
 
         return self._zone_command_b64(
