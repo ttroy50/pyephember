@@ -7,6 +7,8 @@ import base64
 import datetime
 import json
 import time
+import collections
+
 from enum import Enum
 
 import requests
@@ -40,6 +42,12 @@ class PointIndex(Enum):
     XXX_16_0000 = 16
     CTR_17_ABAB = 17
     CTR_18_0AB7 = 18
+
+
+# """
+# Named tuple to hold a command to write data to a zone
+# """
+ZoneCommand = collections.namedtuple('ZoneCommand', ['name', 'value'])
 
 
 def zone_is_active(zone):
@@ -132,6 +140,13 @@ def zone_boost_hours(zone):
     return zone_pointdata_value(zone, 'BOOST_HOURS')
 
 
+def zone_boost_timestamp(zone):
+    """
+    Return zone boost hours
+    """
+    return zone_pointdata_value(zone, 'BOOST_TIME')
+
+
 def zone_temperature(zone, label):
     """
     Return temperature (float) from the PointIndex value for label (str)
@@ -144,6 +159,13 @@ def zone_target_temperature(zone):
     Get target temperature for this zone
     """
     return zone_temperature(zone, 'TARGET_TEMP')
+
+
+def zone_boost_temperature(zone):
+    """
+    Get target temperature for this zone
+    """
+    return zone_temperature(zone, 'BOOST_TEMP')
 
 
 def zone_current_temperature(zone):
@@ -220,6 +242,53 @@ class EphMessenger:
 
         return pub.is_published()
 
+    def _zone_command_to_ints(self, command):
+        """
+        Convert a ZoneCommand to an array of integers to send
+        """
+        TYPES = {
+            'SMALL_INT': {'id': 1, 'byte_len': 1},
+            'TEMP_RO': {'id': 2, 'byte_len': 2},
+            'TEMP_RW': {'id': 4, 'byte_len': 2},
+            'TIMESTAMP': {'id': 5, 'byte_len': 4}
+        }
+        WRITABLE_COMMAND_TYPES = {
+            'ADVANCE_ACTIVE': 'SMALL_INT',
+            'TARGET_TEMP': 'TEMP_RW',
+            'MODE': 'SMALL_INT',
+            'BOOST_HOURS': 'SMALL_INT',
+            'BOOST_TIME': 'TIMESTAMP',
+            'BOOST_TEMP': 'TEMP_RW'
+        }
+        if command.name not in WRITABLE_COMMAND_TYPES:
+            raise ValueError(
+                "Cannot write to read-only value "
+                "{}".format(command.name)
+            )
+
+        command_type = WRITABLE_COMMAND_TYPES[command.name]
+        command_index = PointIndex[command.name].value
+
+        # command header: [0, index, type_id]
+        int_array = [0, command_index, TYPES[command_type]['id']]
+
+        # now encode and append the value
+        send_value = command.value
+        if command_type == 'TEMP_RW':
+            # The thermostat uses tenths of a degree;
+            # send_value is given in degrees, so we convert.
+            send_value = int(10*send_value)
+        elif command_type == 'TIMESTAMP':
+            # send_value can be either an int representing a Unix timestamp,
+            # or a datetime. Convert if a datetime.
+            if isinstance(command.value, datetime.datetime):
+                send_value = int(command.value.timestamp())
+
+        for b in send_value.to_bytes(TYPES[command_type]['byte_len'], 'big'):
+            int_array.append(int(b))
+
+        return int_array
+
     # Public interface
 
     def start(self, callbacks=None, loop_start=False):
@@ -260,14 +329,18 @@ class EphMessenger:
             self.client.disconnect()
         return True
 
-    def zone_command(self, zone, ints_cmd, stop_mqtt=True, timeout=1):
+    def send_zone_commands(self, zone, commands, stop_mqtt=True, timeout=1):
         """
-        Send an integer-array MQTT command to a zone.
-        Returns true if the command was published within the timeout.
+        Bundles the given array of ZoneCommand objects
+        to a single MQTT command and sends to the named zone.
+
+        If a single ZoneCommand is given, send just that.
+
+        Returns true if the bundled command was published within the timeout.
 
         For example, to set target temperature to 19:
 
-          zone_command("Zone_name", [0, 6, 4, 0, 190])
+          send_zone_command("Zone_name", ZoneCommand('TARGET_TEMP', 19))
 
         """
         def ints_to_b64_cmd(int_array):
@@ -276,6 +349,14 @@ class EphMessenger:
             return its base64 string in ascii
             """
             return base64.b64encode(bytes(int_array)).decode("ascii")
+
+        if isinstance(commands, ZoneCommand):
+            commands = [commands]
+
+        ints_cmd = [
+            x for cmd in commands
+            for x in self._zone_command_to_ints(cmd)
+        ]
 
         return self._zone_command_b64(
             zone, ints_to_b64_cmd(ints_cmd), stop_mqtt, timeout
@@ -442,15 +523,15 @@ class EphEmber:
         return self._homes[0]['gatewayid']
 
     def _set_zone_target_temperature(self, zone, target_temperature):
-        return self.messenger.zone_command(
+        return self.messenger.send_zone_commands(
             zone,
-            [0, PointIndex.TARGET_TEMP.value, 4, 0, int(10*target_temperature)]
+            ZoneCommand('TARGET_TEMP', target_temperature)
         )
 
     def _set_zone_boost_temperature(self, zone, target_temperature):
-        return self.messenger.zone_command(
+        return self.messenger.send_zone_commands(
             zone,
-            [0, PointIndex.BOOST_TEMP.value, 4, 0, int(10*target_temperature)]
+            ZoneCommand('BOOST_TEMP', target_temperature)
         )
 
     def _set_zone_advance(self, zone, advance=True):
@@ -458,9 +539,9 @@ class EphEmber:
             advance = 1
         else:
             advance = 0
-        return self.messenger.zone_command(
+        return self.messenger.send_zone_commands(
             zone,
-            [0, PointIndex.ADVANCE_ACTIVE.value, 1, advance]
+            ZoneCommand('ADVANCE_ACTIVE', advance)
         )
 
     def _set_zone_boost(self, zone, boost_temperature, num_hours, timestamp=0):
@@ -476,21 +557,18 @@ class EphEmber:
         If timestamp is None, do not send timestamp at all.
         (maybe results in permanent boost?)
         """
-        cmd = [0, PointIndex.BOOST_HOURS.value, 1, num_hours]
+        cmds = [ZoneCommand('BOOST_HOURS', num_hours)]
         if boost_temperature is not None:
-            temp_cmd = [0, PointIndex.BOOST_TEMP.value,
-                        4, 0, int(10 * boost_temperature)]
-            cmd = cmd + temp_cmd
+            cmds.append(ZoneCommand('BOOST_TEMP', boost_temperature))
         if timestamp is not None:
             if timestamp == 0:
                 timestamp = int(datetime.datetime.now().timestamp())
-            cmd = cmd + [0, PointIndex.BOOST_TIME.value, 5]
-            cmd = cmd + [int(b) for b in timestamp.to_bytes(4, 'big')]
-        return self.messenger.zone_command(zone, cmd)
+            cmds.append(ZoneCommand('BOOST_TIME', timestamp))
+        return self.messenger.send_zone_commands(zone, cmds)
 
     def _set_zone_mode(self, zone, mode_num):
-        return self.messenger.zone_command(
-            zone, [0, PointIndex.MODE.value, 1, mode_num]
+        return self.messenger.send_zone_commands(
+            zone, ZoneCommand('MODE', mode_num)
         )
 
     # Public interface
@@ -647,6 +725,13 @@ class EphEmber:
         zone = self.get_zone(name)
         return zone_target_temperature(zone)
 
+    def get_zone_boost_temperature(self, name):
+        """
+        Get the boost target temperature for a zone
+        """
+        zone = self.get_zone(name)
+        return zone_boost_temperature(zone)
+
     def is_boost_active(self, name):
         """
         Check if boost is active for a zone
@@ -660,6 +745,13 @@ class EphEmber:
         """
         zone = self.get_zone(name)
         return zone_boost_hours(zone)
+
+    def boost_timestamp(self, name):
+        """
+        Get the timestamp recorded for the boost
+        """
+        zone = self.get_zone(name)
+        return datetime.datetime.fromtimestamp(zone_boost_timestamp(zone))
 
     def is_target_temperature_reached(self, name):
         """
@@ -717,7 +809,7 @@ class EphEmber:
         """
         Turn off boost for a named zone
         """
-        return self.activate_zone_boost(zone, num_hours=0)
+        return self.activate_zone_boost(zone, num_hours=0, timestamp=None)
 
     def set_zone_mode(self, name, mode):
         """
